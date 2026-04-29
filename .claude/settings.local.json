@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//c/Users/gao28/.claude/plugins/cache/claude-plugins-official/skill-creator/unknown/skills/skill-creator/**)",
+      "Bash(python -m scripts.quick_validate \"/d/ProjectFiles/day-life/2026-04/dev-spec-flow\")",
+      "Bash(python -m venv .venv)",
+      "Bash(/c/Users/gao28/.claude/plugins/cache/claude-plugins-official/skill-creator/unknown/skills/skill-creator/.venv/Scripts/python.exe -m pip install pyyaml)",
+      "Bash(/c/Users/gao28/.claude/plugins/cache/claude-plugins-official/skill-creator/unknown/skills/skill-creator/.venv/Scripts/python.exe -m scripts.quick_validate /d/ProjectFiles/day-life/2026-04/dev-spec-flow)",
+      "Bash(/c/Users/gao28/.claude/plugins/cache/claude-plugins-official/skill-creator/unknown/skills/skill-creator/.venv/Scripts/python.exe -m scripts.package_skill /d/ProjectFiles/day-life/2026-04/dev-spec-flow /d/ProjectFiles/day-life/2026-04/dev-spec-flow)"
+    ]
+  }
+}
