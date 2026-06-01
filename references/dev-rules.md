@@ -145,29 +145,34 @@ const dollars = cents.map(c => c / 100);
 
 ## 6. 文档实时更新
 
-**做什么**：开发过程中只要碰到这些情况，**立刻** 回头改 `requirements.md` 或 `tasks.md`：
+**做什么**：开发过程中只要碰到这些情况，**立刻** 回头改 `openspec/changes/<id>/` 下对应的 artifact（`proposal.md` / `spec.md` / `design.md`）或 `tasks.md`：
 
-- 实现方式跟原计划不一样（用户拍板的或自己拍板的都算）
-- 发现需求里漏了一条（现在加上而不是憋到最后）
-- 任务比预想的复杂，需要拆成子任务
-- 任务比预想的简单，可以合并 / 删除
-- 出现新依赖（包、环境变量、外部服务）
+- 实现方式跟原计划不一样（用户拍板的或自己拍板的都算）→ 改 design 或 spec
+- 发现需求里漏了一条（现在加上而不是憋到最后）→ 加进 spec 的 Requirement/Scenario，并补对应任务
+- 任务比预想的复杂，需要拆成子任务 / 比预想简单可合并 → 改 tasks
+- 出现新依赖（包、环境变量、外部服务）→ 记进 design / proposal 的 Impact
 
-文档 commit 跟代码 commit 可以放一起（"feat: X功能 + 同步需求文档"）。
+文档 commit 跟代码 commit 放一起（见 `git-flow.md`）。spec 级行为变化记得用 ADDED/MODIFIED 维护 delta。
 
-**反例**：开发到一半发现需要新依赖一个 OAuth provider，但需求文档里完全没提；最后审核的时候用户才发现。
+**反例**：开发到一半发现要依赖一个 OAuth provider，但 proposal 的 Impact / design 里完全没提；最后审核时用户才发现。
 
 ---
 
 ## 7. UI 必先调研设计
 
-详见 `ui-design.md`。摘要：先调研（参考竞品、Dribbble、Mobbin、frontend-design skill），出一个简单方案给用户确认，再开写。
+详见 `ui-design.md`。摘要：先调研（参考竞品、Dribbble、Mobbin、当前环境里可用的前端设计类 skill），出一个简单方案给用户确认，再开写。
 
 ---
 
-## 8. 每任务自检 + commit + push
+## 8. 测试是一等公民
 
-详见 `code-review.md` 和 `git-flow.md`。摘要：每个任务做完，五项自检（功能完整 / 边界覆盖 / 无 bug / 类型安全 / 注释充足），然后 commit + push。
+详见 `verification.md`。**spec 里每条 `#### Scenario` 都是一个测试用例**——开发期就把它落成自动化测试，别等最后补。
+
+- 测试写进 `tasks.md`（独立测试任务，或每个功能任务的验收条目）。
+- 跟项目已有的测试框架 / 目录约定 / mock 方式走，不另起炉灶；项目没测试基建时，引不引入属"外部决策"，可停下问用户。
+- **每完成一个里程碑跑增量验证**：跑测试 + lint + type check + 真跑 app（可用 `/verify` / `/run`），别把验证压到 Phase 4。
+
+> 每任务的"五项自检 + commit"见单任务循环、`code-review.md`、`git-flow.md`。
 
 ---
 
@@ -175,9 +180,10 @@ const dollars = cents.map(c => c / 100);
 
 **做什么**：
 
-- Phase 0、1、2 进入下一阶段前要用户确认。
+- Phase 0、1、2 进入下一阶段前要用户确认——但**闸门按级缩放**：Lite 级把这几道闸合并成一次确认，别为难小任务（见 SKILL.md 分级表）。
 - Phase 3 内部，**任务列表已经被用户确认过**，按列表一个接一个做下去，不要每完成一个任务就停下问 "继续吗？"。
-- Phase 4 内部，多轮审核也是按预定轮数跑完，不停。
+- Phase 4 内部，并行审核按预定波数跑完，不停。
+- Phase 5 归档完成后，向用户汇报全部产出。
 
 **只能停的四种情况**：
 

@@ -1,13 +1,13 @@
-# Review Round <N> — <视角名称>
+# Review <视角名称> — <Change 标题>
 
-> 复制本模板到 `docs/<feature-name>/review-round-<N>.md`。
-> 每轮结束 commit。
+> 复制到 `openspec/changes/<change-id>/review-<perspective>.md`（或 `review-wave-<N>.md`）。
+> 由一个**独立隔离上下文的审核 agent** 产出（见 [`references/review-agents.md`](../references/review-agents.md)），主 agent 聚合后填修复与验证。每波结束 commit。
 
 **日期**: <YYYY-MM-DD>
-**视角**: <功能 / 类型 & 静态分析 / 性能 / 安全 / UX & a11y / 跨模块集成 / ...>
-**审核范围**: <全部已完成任务 / M3 之后的改动 / 新加的 endpoint>
-**关联需求**: [`requirements.md`](./requirements.md)
-**关联任务**: [`tasks.md`](./tasks.md)
+**视角**: <功能正确性 / 类型 & 静态 / 性能 / 安全 / UX & a11y / 跨模块集成 / 回归 / 文档对齐 / ...>
+**波次**: <1 / 2 / 3>
+**审核范围**: <git diff main...HEAD / M3 之后的改动 / 新加的 endpoint>
+**对照基准**: [`specs/`](./specs/)（Requirement + Scenario） · [`design.md`](./design.md)
 
 ---
 

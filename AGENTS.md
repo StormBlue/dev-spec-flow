@@ -1,190 +1,127 @@
 # dev-spec-flow — 规范驱动的全栈开发工作流
 
-> 这份 AGENTS.md 是给 Codex / 其他通过项目根 `AGENTS.md` 自动加载指令的 AI agent 用的。Claude Code 用户请同时参考同目录下的 `SKILL.md`（只多了 frontmatter，内容一致）。
+> 这份 AGENTS.md 给 Codex / 其它通过项目根 `AGENTS.md` 自动加载指令的 AI agent 用。Claude Code 用户请参考同目录 `SKILL.md`（内容一致，只多 frontmatter，且并行审核走原生子 agent）。
+>
+> **引用路径**：下文引用的 `references/...`、`templates/...` 若你按 README「方式一/二」部署到了 `.dev-spec-flow/` 下，请把前缀改成 `.dev-spec-flow/references/...`、`.dev-spec-flow/templates/...`。
 
-把用户那种粗犷、发散的需求描述，变成一份扎实的需求文档 + 任务列表，再按任务循环开发、审核、提交，最后多轮回顾把缺漏补齐。**目标是少返工、少遗漏、少中途停顿**。
-
----
-
-## 何时启用本工作流
-
-只要用户在描述一个要构建的东西就启用，无论描述有多模糊：
-
-- "帮我做个聊天应用 / 实现一下文件上传 / 开发个后台管理"
-- "我想做一个 X / 需要一个 Y / 添加 Z 功能"
-- "build / implement / add / create [feature]"
-
-**不要启用的场景**：仅一两行的琐碎改动（改个变量名、修个 typo），开销不划算。
+把用户那种粗犷、发散的需求，变成**活文档（`openspec/specs/`）+ 一次改动的提案/规格/设计/任务**，再按任务循环开发、审核、归档回真相源。**目标是少返工、少遗漏、少中途停顿**，并**按体量缩放**——小任务走轻量道，大任务才上全套。
 
 ---
 
-## 4 阶段总览
+## 何时启用
+
+只要用户在描述一个要构建/修改的东西就启用，无论多模糊（"帮我做个 X / 实现 Y / 添加 Z / build/implement/refactor …"）。**不启用**：仅一两行的琐碎改动（改变量名、修 typo）。介于两者之间的走 **Lite 级**。
+
+---
+
+## 文档模型（地基）
+
+文档落在 `openspec/`，分两块（完整说明见 `references/openspec-model.md`）：
+
+- **`openspec/specs/`** — 真相源，描述系统**当前**行为（Requirement + Scenario），只在归档时更新。
+- **`openspec/changes/<id>/`** — 一次改动的全部上下文：`proposal.md` + `specs/`（delta）+ `design.md`（可选）+ `tasks.md`。
+
+change 完成后**归档**：把 delta merge 进 `specs/`，change 文件夹移入 `changes/archive/`。
+
+---
+
+## 6 阶段总览
 
 ```
-Phase 0  体量评估    → 让用户确认走 1/5/10+ 轮审核
-Phase 1  调研        → 拉最新文档 + WebSearch + 阅读已有代码
-Phase 2  写文档       → docs/<feature>/requirements.md + tasks.md
-Phase 3  开发循环     → 每个任务: 开发 → 自检 → 写备注 → 改状态 → commit+push → 下一个
-Phase 4  最终审核     → 小 1 轮 / 中 5 轮 / 超大 10+ 轮
+Phase 0  定级立项   → 轻量判 Lite/Std/Full + 建 change 文件夹，向用户确认级别
+Phase 1  调研       → 拉最新文档 / 可用工具 / WebSearch / 读代码 + 读 openspec/specs/
+Phase 2  写文档     → proposal → spec(delta) → design(按需) → tasks（带需求追溯）
+Phase 3  开发循环   → 每任务: 改状态→实现→自检→测试→备注→commit→下一个；里程碑验证+push
+Phase 4  审核       → 按视角审查（Claude Code 并行隔离 agent；Codex 顺序降级）
+Phase 5  归档       → merge delta 回 openspec/specs/，change 移入 archive/
 ```
 
-每个阶段进入下一个之前都要让用户确认（开发循环和最终审核内部不停）。
+**审批闸按级缩放**（开发循环与审核内部都不停）：
+
+| 级别 | 必写 artifact | 审批闸 | 审核 |
+|------|---------------|--------|------|
+| **Lite（小）** | proposal(精简)+轻量 delta spec+tasks | 1 道（合并确认） | 1 视角综合 |
+| **Standard（中）** | proposal+spec+tasks，design 按需 | 2 道（调研/文档） | 4-5 视角 |
+| **Full（超大）** | 全套，可能多 change | 2-3 道（+里程碑检查点） | 2-3 波 8-12 视角 |
 
 ---
 
-## Phase 0 — 体量评估
+## Phase 0 — 定级立项
 
-在做任何事之前先粗估：
+**先轻量定级，别在调研前给死估算**，调研后再敲定：
 
-- **预估任务数**（如 "约 8 个任务"）
-- **预估工时**（如 "约 2 个工作日"）
-- **预估影响文件数**（如 "约 15 个文件"）
-- **量级判定**: 小 / 中 / 超大
-
-| 量级 | 任务数 | 范围 | 最终审核轮数 |
-|------|--------|------|--------------|
-| 小   | ≤ 5    | 单模块、< 1 天 | 1 轮 |
-| 中   | 5-20   | 跨模块 | 5 轮 |
-| 超大 | > 20   | 多领域 / 新系统 | 10+ 轮 |
-
-报给用户："我估这是 X 量级 (任务约 N 个 / 工时约 H / 文件约 F)，确认走 R 轮审核吗？"——拿到确认再继续。
-
----
+- 量级 Lite/Std/Full（判据见 `references/openspec-model.md` 第六节）。
+- 粗估任务数量级 + 涉及哪些域。**不报"人天"**（AI 的人天估算无意义）。
+- 起 change-id（kebab-case 动词起头，如 `add-team-todo`），建 `openspec/changes/<id>/`。
+- 一句话报级别给用户确认。Lite 级可与 Phase 2 文档确认合并成一次。
 
 ## Phase 1 — 调研
 
-**核心**：基于业界最新最佳实践给出方案，不靠脑子里可能过时的训练知识。
+**基于业界最新最佳实践，不靠可能过时的训练记忆。** 完整策略见 `references/research.md`。
 
-### 调研工具优先级
+1. **拉最新库/框架文档**——有 context7 MCP 优先用（`resolve-library-id` → `get-library-docs`），没有就 WebFetch 官方文档站。永远不要靠记忆写版本敏感的 API。
+2. **当前可用的工具**——先看自己环境实际有什么（别假设），有相关的优先用。
+3. **WebSearch / WebFetch**——业界模式、相似项目、设计参考。
+4. **读项目自身**——`README`、`CONTRIBUTING.md`、`AGENTS.md`、依赖清单、相似模块，**以及已有的 `openspec/specs/`**。
 
-1. **拉最新库 / 框架文档** — 凡是涉及第三方库的，优先去拉它的最新文档（如果有 context7 MCP 优先用，没有就 WebFetch 官方文档站）。**永远不要**靠记忆中的 API 写代码，特别是版本变化大的库。
-2. **WebSearch / WebFetch** — 找业界最新模式、相似优秀项目、设计参考
-3. **阅读现有代码** — 项目里已有的约定、模式、依赖、`README`、`CONTRIBUTING.md`、`AGENTS.md`、`.editorconfig`
-
-### 产出
-
-一份**技术决策摘要**给用户审：
-
-- 技术栈选型 + 理由
-- 关键架构模式
-- 主要风险 + 缓解策略
-- 留给用户决策的开放问题
-
-让用户确认后才进 Phase 2。
-
-> 完整调研策略见 `references/research.md`
-
----
+产出**技术决策摘要**（选型+理由/架构模式/风险+缓解/开放问题），Standard/Full 让用户确认后进 Phase 2。调研完敲定级别。
 
 ## Phase 2 — 写文档
 
-把决策落到磁盘上：
+落到 `openspec/changes/<id>/`，逐个用模板（顺序与依赖见 `references/openspec-model.md`）：
 
-```
-docs/
-└── <feature-name>/
-    ├── requirements.md   ← 用 templates/requirements.md
-    └── tasks.md          ← 用 templates/tasks.md
-```
+1. **`proposal.md`**（`templates/proposal.md`）——why + what changes + capabilities + 范围 + 成功标准 + impact + 开放问题。
+2. **`specs/<domain>/spec.md`**（`templates/spec.md`）——delta（ADDED/MODIFIED/REMOVED）。每条 `### Requirement:` 用 SHALL/MUST，配 `#### Scenario:`（WHEN/THEN，至少一个，**正好 4 个井号**）。非功能需求也写成可测 Requirement。
+3. **`design.md`**（`templates/design.md`）——**仅复杂时写**（跨模块/新依赖/安全/迁移/有歧义）。技术栈+版本、架构图、数据模型、风险在此。
+4. **`tasks.md`**（`templates/tasks.md`）——分层+依赖图+状态 emoji+备注块，**每个任务标注实现哪条 Requirement**。
 
-小项目可平铺 `docs/requirements-<feature>.md`；大项目按子系统分子目录。
-
-### 2.1 需求文档
-
-要写到「光看这份文档就能开始实现」的程度。必含：
-
-- 背景 / 动机
-- 目标（范围内 + 范围外都要写）
-- 用户场景 / 用户故事
-- 功能需求（每条要可验收）
-- 非功能需求（性能 / 安全 / 可访问性 / 可观测性）
-- 技术栈 + 依赖（含具体版本号）
-- 架构概览（图 + 文字）
-- 开放风险 / 开放问题
-
-### 2.2 任务列表
-
-**这份文档是开发期的指挥棒**。必须有：
-
-- **分层级**：里程碑 → 任务 → 子任务
-- **依赖关系**：每个任务标注「依赖什么 / 阻塞什么」
-- **依赖图**：用 mermaid 画里程碑级别的依赖图
-- **状态 emoji**（每行都要有）：
-  - ⏳ 待开始
-  - 🚧 进行中
-  - ✅ 已完成
-  - ⚠️ 阻塞中
-  - 🔍 待审核
-- **备注块**：每个任务下要有可填写区，开发期由 AI 填入：
-  - 🐛 遇到的问题
-  - 🔧 最终实现逻辑
-  - 🎯 关键决策
-
-两份文档写完后，**完整带用户过一遍**，确认无误才进 Phase 3。
-
----
+**闭环自查**：每条 Requirement 都有 ≥1 任务覆盖吗？文档带用户过一遍后进 Phase 3。
 
 ## Phase 3 — 开发循环
 
-### 9 条铁律
-
-1. **严守开发规范** — 项目已有的 lint / format / 命名 / 文件布局先读 `CONTRIBUTING.md`、`AGENTS.md`、`.editorconfig`，跟着走。
-2. **类型安全是底线** — 脚本语言也要类型化。TS over JS；Python 加 hint 跑 pyright/mypy；Ruby/PHP 能加就加。`any` / `Any` 是污点。
-3. **依赖锁最新固定版本** — npm/pip/gem 等都用 `=` 锁死最新稳定版（先去查最新版）；**Rust 例外** — cargo 习惯锁大版本号 `serde = "1"` 而不是 `1.0.215`。
-4. **注释跟项目主语言走** — 看现有注释多数是什么语言就用什么；项目里没注释默认中文。注释解释 **为什么**，不复读 **是什么**。
-5. **超长文件里程碑后拆分** — 每完成一个里程碑，扫一遍 > 400 行的源码文件，按职责拆模块。**豁免**：DB migration、原始 SQL、日志输出、生成式文档。
-6. **文档实时更新** — 实现偏离 `requirements.md` 或有新决策时，**立即** 改文档。
-7. **UI 必先调研设计** — 先看相似优秀项目（搜参考、看 Mobbin / Dribbble / 实际竞品），确定方案再写。
-8. **每任务自检 + commit + push** — 见下方循环。
-9. **不要中途停下来等指令** — 任务列表已经过用户确认，按列表走完。仅在真正阻塞时才停。
+**先建 feature 分支**（见 `references/git-flow.md`）。9 条铁律见 `references/dev-rules.md`：① 严守项目规范 ② 类型安全 ③ 依赖锁最新固定版（Rust 例外）④ 注释跟项目主语言（无则中文，解释「为什么」）⑤ 超长文件里程碑后拆分 ⑥ 文档实时更新 ⑦ UI 必先调研设计 ⑧ **测试是一等公民**（`references/verification.md`）⑨ 不中途停。
 
 ### 单任务循环
 
 ```
 对每个任务 T：
-  1. tasks.md 里把 T 状态改成 🚧
-  2. 实现 T，遵守 9 条铁律
-  3. 自检
-     - 功能是否完整？
-     - 逻辑漏洞 / 边界情况？
-     - 是否引入 bug？
-     - 类型是否安全？
-     - 注释是否充足？
-  4. 写 T 的备注块（问题 / 实现 / 决策）
-  5. tasks.md 里把 T 状态改成 ✅
-  6. commit + push
-  7. 立刻继续下一个任务，不要停下来等用户指令
+  1. tasks.md 把 T 状态改 🚧
+  2. 实现 T，遵守 9 铁律
+  3. 自检（references/code-review.md 五项清单）
+  4. 写/跑该任务对应的测试（scenario → 测试用例）
+  5. 写 T 的备注块（问题/实现/决策）
+  6. tasks.md 把 T 状态改 ✅
+  7. commit（单任务粒度）
+  8. 立刻继续下一个任务，不停下来等指令
 ```
 
-### 仅这些情况才停下
+- **里程碑边界**：全部 ✅ 后跑增量验证（真跑 app + 测试套件）、扫超长文件，然后 **push**（每任务 commit 但不必每任务 push）。
+- **断点续做**：中断/上下文压缩后，**重读 `tasks.md`，从第一个非 ✅ 任务继续**（见 `references/context-and-agents.md`）。
+- **只在四种情况停**：真正需求歧义 / 外部决策（选型、密钥）/ 破坏性操作授权 / 反复修不动。用户明说过"AI 老停下要督促"——**默认不停**。
 
-- 需求里有真正模糊的地方需要用户拍板
-- 涉及外部决策（如 "用 Stripe 还是 Paddle？"）
-- 需要用户授权的破坏性操作
-- 测试 / 编译失败你确实修不动
+## Phase 4 — 审核
 
-用户已经明说："AI 经常自己在完成一个任务后停下来，需要督促 AI 继续开发"——所以**默认不停**。
+所有任务 ✅ 后按视角审查（playbook 见 `references/final-review.md`，机制见 `references/review-agents.md`）。
 
-> 完整规则见 `references/dev-rules.md`、`references/code-review.md`、`references/git-flow.md`
+**核心思想**：不要用写了一肚子代码的开发上下文去自审（有偏见、会"我写的应该没问题"）。要么换隔离上下文，要么换视角，对照 spec 的 scenario 逐条查。
 
----
+- **Claude Code**：并发派发只读子 agent，每个独立干净上下文专攻一个视角，主 agent 聚合/去重/分级/修复。
+- **Codex（降级）**：无子 agent，按视角**顺序**跑——理想情况**每个视角开一次新会话**（或清空上下文重进），只带 change 目录 + diff，人工模拟"隔离上下文"；每个视角开头自我提示"忽略我之前写代码的假设，以新人视角审查"。
 
-## Phase 4 — 最终审核
+视角清单（按级别选 1-2 / 4-5 / 8-12 项）：功能正确性（拿 scenario 逐条核对）/ 类型 & 静态 / 性能 / 安全 / UX & a11y / 跨模块集成 / 回归 / 文档对齐 / 数据 & 迁移 / 运维可观测。详见 `references/review-agents.md` 的清单库与 charter。
 
-所有任务 ✅ 后按量级跑：
+每视角产出报告 `openspec/changes/<id>/review-<perspective>.md`（`templates/review-report.md`），修复后重跑测试，commit。**风险驱动不凑数**：0 发现如实记，不编造。
 
-| 量级 | 轮数 | 每轮重点 |
-|------|------|----------|
-| 小   | 1    | 综合一遍，对照原始需求 + 任务列表，把缺漏补齐 |
-| 中   | 5    | 每轮一个视角：功能 / 类型安全 / 性能 / 安全 / UX & 可访问性 |
-| 超大 | 10+  | 上述 5 轮 + 跨模块集成 / 回归扫 / i18n & a11y 审计 / 文档对齐 / 性能压测 / 安全扫 / 等 |
+## Phase 5 — 归档
 
-每轮产出一份报告 `docs/<feature>/review-round-<N>.md`，列出发现 + 修复，每轮单独 commit。
+change 全部 ✅ 且审核通过后（见 `references/openspec-model.md` 第八节）：
 
-> 完整 playbook 见 `references/final-review.md`
+1. 把 change `specs/` 的 ADDED/MODIFIED/REMOVED **merge 进 `openspec/specs/<domain>/spec.md`**。
+2. `changes/<id>/` 移到 `changes/archive/<YYYY-MM-DD>-<id>/`。
+3. 通读校验无冲突，commit。向用户汇报全部产出 + specs 更新了什么。
 
 ---
 
 ## 一句话哲学
 
-需求来自人类，常常是模糊的；把模糊变成扎实的需求文档 + 可执行的任务列表，按列表一口气走到底，每步留下足够的痕迹（commit、备注、审核报告），最后用与体量匹配的多轮回顾把缺漏补完。
+把模糊需求变成**活的规格 + 一次改动的完整上下文**，按体量选最轻够用的严格度，按任务一口气走到底，每步留痕（commit、备注、审核报告），换个隔离的视角把缺漏审出来，最后归档回真相源。

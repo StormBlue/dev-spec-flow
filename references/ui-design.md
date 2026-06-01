@@ -20,16 +20,14 @@ UI 是用户最直接感受到的产物，AI 自己脑补的设计往往是 "AI 
 
 ## Step 1: 工具盘点
 
-进 UI 阶段先看自己手上有什么：
+进 UI 阶段先看自己**这个环境里实际有什么**（以当前会话列出的 available skills / MCP 为准，别假设某个一定在）：
 
-| 工具 | 何时用 |
-|------|--------|
-| `frontend-design` skill | **首选** —— 写有设计感、不"AI 味"的前端 |
-| `figma:figma-implement-design` skill | 用户给了 Figma URL，按 Figma 实现 |
-| `figma:figma-generate-design` skill | 把代码现有页面同步到 Figma（反向） |
-| `figma:figma-generate-library` skill | 项目要建 design system / 组件库 |
-| Playwright MCP | 需要看竞品实际效果（截图 / 交互） |
-| 项目里已有的组件库 | shadcn/ui、Material UI、Ant Design、Chakra... |
+| 类型工具（有才用） | 何时用 |
+|--------------------|--------|
+| 前端设计类 skill | **首选** —— 写有设计感、不"AI 味"的前端 |
+| Figma 集成类 skill | 用户给了 Figma URL 按图实现 / 反向同步 / 建 design system |
+| 浏览器自动化 MCP（如 Playwright / Chrome DevTools） | 看竞品实际效果（截图 / 交互） |
+| **项目里已有的组件库** | shadcn/ui、Material UI、Ant Design、Chakra… |
 
 **优先用既有组件库**。设计系统是项目的资产，自己造轮子是债。
 

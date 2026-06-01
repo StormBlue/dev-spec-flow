@@ -1,0 +1,12 @@
+# 打包产物：dev-spec-flow.skill 是由源文件打包生成的，应在发布时生成而非提交进仓库。
+# 若仓库里已提交过一份，执行 `git rm --cached dev-spec-flow.skill` 取消跟踪。
+*.skill
+
+# skill-creator / 打包脚本可能产生的本地环境
+.venv/
+__pycache__/
+*.pyc
+
+# OS
+.DS_Store
+Thumbs.db

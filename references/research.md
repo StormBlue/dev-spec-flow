@@ -8,14 +8,16 @@ Phase 1 的核心问题：**怎么快速搞清楚做这事的最佳实践，不�
 
 ### 1. context7 MCP（如果可用）
 
-**最适合**：库 / 框架 / SDK / CLI 工具的最新文档。
+**最适合**：库 / 框架 / SDK / CLI 工具的最新文档。它只有两个工具：
 
 ```
-mcp__plugin_context7_context7__resolve-library-id
+resolve-library-id
   → 给 libraryName 拿到 /org/project 形式的 ID
-mcp__plugin_context7_context7__query-docs
-  → 拿到精准的当前版本文档
+get-library-docs
+  → 用上一步的 ID 拿到精准的当前版本文档（可指定 topic）
 ```
+
+> 实际工具名前缀随安装方式而定（如插件形式可能是 `mcp__plugin_context7_context7__resolve-library-id`），但核心两个动作就是 `resolve-library-id` → `get-library-docs`。**先看自己环境里 context7 是否真的可用**，不可用就走下面的 WebFetch 官方文档。
 
 **为什么优先**：训练数据里的 API 经常已经过时，特别是 React、Next.js、Tailwind、Pydantic 这种迭代快的库。context7 给的是当前最新文档。
 
@@ -25,23 +27,21 @@ mcp__plugin_context7_context7__query-docs
 - "Stripe Checkout 现在的 webhook 签名校验怎么写？"
 - "TanStack Query v5 的 useQuery 接口"
 
-### 2. 已加载的相关 skill
+### 2. 当前可用的相关 skill
 
-工作前先看自己手头有什么 skill。常见相关：
+**先看自己这个环境里实际加载了哪些 skill**（不同用户/项目装的 skill 不一样，不要假设某个一定存在）。看到有对得上当前任务的，优先用——skill 本身就是该领域最佳实践的集合，比自己从头调研快得多。
 
-| 任务 | Skill |
-|------|-------|
-| 前端 / UI 设计 | `frontend-design` |
-| Anthropic API / Claude SDK | `claude-api` |
-| Figma 设计稿实现 | `figma:figma-implement-design` |
-| Figma 设计系统建立 | `figma:figma-generate-library` |
-| 流程图 / 时序图 | `figma:figma-generate-diagram` |
-| 创建/优化 Claude Code 项目文档 | `docs-architect` |
-| 设置项目级 Claude Code 自动化 | `claude-code-setup:claude-automation-recommender` |
-| 简化代码 | `simplify` |
-| 安全审计 | `security-review` |
+常见可能有用的类型（**有才用，没有就跳过**）：
 
-**为什么优先**：skill 本身就是这个领域的最佳实践集合。用 skill 比自己重新调研快得多。
+| 任务类型 | 可能的 skill（如环境里存在） |
+|----------|------------------------------|
+| 前端 / UI 设计 | 前端设计类 skill |
+| Anthropic API / Claude SDK | Claude API 类 skill |
+| Figma 设计稿实现 / 设计系统 | Figma 集成类 skill |
+| 项目文档架构 | 文档架构类 skill |
+| 代码简化 / 安全审计 | `/simplify`、`/security-review`（通常内置） |
+
+判断"有没有"的依据是当前会话里 system reminder 列出的 available skills，而不是这张表。
 
 ### 3. WebSearch / WebFetch
 
@@ -62,6 +62,7 @@ mcp__plugin_context7_context7__query-docs
 
 **永远要做**。在调研 "X 怎么实现" 之前，先扫一遍现有项目：
 
+- **`openspec/specs/`**（如有）——这是系统当前行为的真相源，最权威的现状描述，且能告诉你这次改动该落在哪个 domain、是否触及已有 Requirement。
 - `README.md`、`ARCHITECTURE.md`、`docs/`
 - `package.json` / `pyproject.toml` / `Cargo.toml` / `go.mod` 的依赖列表
 - 已有的相似模块怎么写的（最大的灵感来源）
