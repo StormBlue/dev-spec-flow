@@ -1,0 +1,3 @@
+Verification revision capture refreshed 2026-08-14T00:25:00+08:00.
+Immutable implementation commit: 2ad28f81781d949517bb275f753dcad6d4e80aac
+The complete 60-test suite, syntax, package, doctor, and docs-architect gates were observed against this commit.

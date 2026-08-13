@@ -1,0 +1,17 @@
+{
+  "command": "python D:\\ProjectFiles\\DocProjects\\docs-architect\\scripts\\docs_guard.py --root D:\\ProjectFiles\\DocProjects\\dev-spec-flow index --write --json",
+  "working_directory": "D:\\ProjectFiles\\DocProjects\\dev-spec-flow",
+  "exit_code": 0,
+  "files": {"openspec/generated/traceability.json":"unchanged","openspec/generated/traceability.md":"unchanged"},
+  "findings": [],
+  "markdown_preview": null,
+  "ok": true,
+  "traceability": {"artifacts": [
+    {"id":"EVID-REQ-2026-001","path":"openspec/changes/upgrade-risk-driven-workflow/verification.md","status":"active","title":"Verification for REQ-2026-001","type":"evidence"},
+    {"id":"PLAN-REQ-2026-001","path":"openspec/changes/upgrade-risk-driven-workflow/tasks.md","status":"active","title":"Implement the risk-driven dev-spec-flow upgrade","type":"exec-plan"},
+    {"id":"REQ-2026-001","path":"openspec/changes/upgrade-risk-driven-workflow/proposal.md","status":"in_progress","title":"Upgrade dev-spec-flow to a risk-driven lifecycle","type":"requirement"},
+    {"id":"SYS-dev-spec-flow","path":"SKILL.md","status":"active","title":"Dev Spec Flow canonical workflow","type":"system-doc"},
+    {"id":"SYS-dev-spec-flow-guide","path":"README.md","status":"active","title":"dev-spec-flow user and maintainer guide","type":"system-doc"}
+  ],"schema_version":1},
+  "write": true
+}

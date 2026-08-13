@@ -1,0 +1,7 @@
+Command: python scripts/dev_spec_flow.py --root . validate --json
+Observed at: 2026-08-14T00:25:00+08:00
+Observed implementation commit: 2ad28f81781d949517bb275f753dcad6d4e80aac
+Observed result: package manifest is valid; 28 files checked.
+
+Command: python scripts/dev_spec_flow.py --root . doctor --json
+Observed result: package and active change structure valid; readiness is captured separately before Close.

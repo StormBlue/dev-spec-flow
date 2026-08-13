@@ -1,0 +1,5 @@
+Command: git rev-parse HEAD
+Observed local HEAD: 2ad28f81781d949517bb275f753dcad6d4e80aac
+Command: git -c http.proxy=http://127.0.0.1:7890 -c https.proxy=http://127.0.0.1:7890 ls-remote origin refs/heads/develop
+Observed remote develop: 2ad28f81781d949517bb275f753dcad6d4e80aac
+Equal: True

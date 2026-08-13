@@ -1,0 +1,4 @@
+Skill is valid!
+
+Observed exit code: 0
+Validation used a temporary PyYAML target; no project dependency was changed.

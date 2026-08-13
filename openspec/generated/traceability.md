@@ -4,9 +4,10 @@
 
 | ID | Type | Status | Title | Path |
 |---|---|---|---|---|
-| `EVID-REQ-2026-001` | evidence | active | Verification for REQ-2026-001 | [openspec/changes/upgrade-risk-driven-workflow/verification.md](../changes/upgrade-risk-driven-workflow/verification.md) |
-| `PLAN-REQ-2026-001` | exec-plan | active | Implement the risk-driven dev-spec-flow upgrade | [openspec/changes/upgrade-risk-driven-workflow/tasks.md](../changes/upgrade-risk-driven-workflow/tasks.md) |
-| `REQ-2026-001` | requirement | in_progress | Upgrade dev-spec-flow to a risk-driven lifecycle | [openspec/changes/upgrade-risk-driven-workflow/proposal.md](../changes/upgrade-risk-driven-workflow/proposal.md) |
+| `EVID-REQ-2026-001` | evidence | completed | Verification for REQ-2026-001 | [openspec/changes/archive/2026-08-14-REQ-2026-001-upgrade-risk-driven-workflow/verification.md](../changes/archive/2026-08-14-REQ-2026-001-upgrade-risk-driven-workflow/verification.md) |
+| `PLAN-REQ-2026-001` | exec-plan | completed | Implement the risk-driven dev-spec-flow upgrade | [openspec/changes/archive/2026-08-14-REQ-2026-001-upgrade-risk-driven-workflow/tasks.md](../changes/archive/2026-08-14-REQ-2026-001-upgrade-risk-driven-workflow/tasks.md) |
+| `REQ-2026-001` | requirement | done | Upgrade dev-spec-flow to a risk-driven lifecycle | [openspec/changes/archive/2026-08-14-REQ-2026-001-upgrade-risk-driven-workflow/proposal.md](../changes/archive/2026-08-14-REQ-2026-001-upgrade-risk-driven-workflow/proposal.md) |
+| `SPEC-workflow` | product-spec | active | Workflow product specification | [openspec/specs/workflow/spec.md](../specs/workflow/spec.md) |
 | `SYS-dev-spec-flow` | system-doc | active | Dev Spec Flow canonical workflow | [SKILL.md](../../SKILL.md) |
 | `SYS-dev-spec-flow-guide` | system-doc | active | dev-spec-flow user and maintainer guide | [README.md](../../README.md) |
 

@@ -2,37 +2,45 @@
   "artifacts": [
     {
       "id": "EVID-REQ-2026-001",
-      "path": "openspec/changes/upgrade-risk-driven-workflow/verification.md",
+      "path": "openspec/changes/archive/2026-08-14-REQ-2026-001-upgrade-risk-driven-workflow/verification.md",
       "relations": [
         {
           "target": "REQ-2026-001",
           "type": "validates"
         }
       ],
-      "status": "active",
+      "status": "completed",
       "title": "Verification for REQ-2026-001",
       "type": "evidence"
     },
     {
       "id": "PLAN-REQ-2026-001",
-      "path": "openspec/changes/upgrade-risk-driven-workflow/tasks.md",
+      "path": "openspec/changes/archive/2026-08-14-REQ-2026-001-upgrade-risk-driven-workflow/tasks.md",
       "relations": [
         {
           "target": "REQ-2026-001",
           "type": "implements"
         }
       ],
-      "status": "active",
+      "status": "completed",
       "title": "Implement the risk-driven dev-spec-flow upgrade",
       "type": "exec-plan"
     },
     {
       "id": "REQ-2026-001",
-      "path": "openspec/changes/upgrade-risk-driven-workflow/proposal.md",
+      "path": "openspec/changes/archive/2026-08-14-REQ-2026-001-upgrade-risk-driven-workflow/proposal.md",
       "relations": [],
-      "status": "in_progress",
+      "status": "done",
       "title": "Upgrade dev-spec-flow to a risk-driven lifecycle",
       "type": "requirement"
+    },
+    {
+      "id": "SPEC-workflow",
+      "path": "openspec/specs/workflow/spec.md",
+      "relations": [],
+      "status": "active",
+      "title": "Workflow product specification",
+      "type": "product-spec"
     },
     {
       "id": "SYS-dev-spec-flow",

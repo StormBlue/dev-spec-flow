@@ -1,0 +1,17 @@
+{
+  "command": "python D:\\ProjectFiles\\DocProjects\\docs-architect\\scripts\\docs_guard.py --root D:\\ProjectFiles\\DocProjects\\dev-spec-flow impact --changed SKILL.md README.md AGENTS.md .docs-architect.json manifest.json scripts/dev_spec_flow.py references adapters agents templates tests openspec/changes/upgrade-risk-driven-workflow --json",
+  "working_directory": "D:\\ProjectFiles\\DocProjects\\dev-spec-flow",
+  "exit_code": 0,
+  "affected_documents": [
+    {"id":"EVID-REQ-2026-001","path":"openspec/changes/upgrade-risk-driven-workflow/verification.md","status":"active","title":"Verification for REQ-2026-001","type":"evidence"},
+    {"id":"PLAN-REQ-2026-001","path":"openspec/changes/upgrade-risk-driven-workflow/tasks.md","status":"active","title":"Implement the risk-driven dev-spec-flow upgrade","type":"exec-plan"},
+    {"id":"REQ-2026-001","path":"openspec/changes/upgrade-risk-driven-workflow/proposal.md","status":"in_progress","title":"Upgrade dev-spec-flow to a risk-driven lifecycle","type":"requirement"},
+    {"id":"SYS-dev-spec-flow","path":"SKILL.md","status":"active","title":"Dev Spec Flow canonical workflow","type":"system-doc"},
+    {"id":"SYS-dev-spec-flow-guide","path":"README.md","status":"active","title":"dev-spec-flow user and maintainer guide","type":"system-doc"}
+  ],
+  "changed_files": [".docs-architect.json","AGENTS.md","README.md","SKILL.md","adapters","agents","manifest.json","openspec/changes/upgrade-risk-driven-workflow","references","scripts/dev_spec_flow.py","templates","tests"],
+  "findings": [],
+  "ok": true,
+  "semantic_review_recommended": true,
+  "unmatched_changed_files": [".docs-architect.json"]
+}

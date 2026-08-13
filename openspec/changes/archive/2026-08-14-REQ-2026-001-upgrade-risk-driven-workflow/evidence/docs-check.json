@@ -1,0 +1,13 @@
+{
+  "command": "python D:\\ProjectFiles\\DocProjects\\docs-architect\\scripts\\docs_guard.py --root D:\\ProjectFiles\\DocProjects\\dev-spec-flow check --json",
+  "working_directory": "D:\\ProjectFiles\\DocProjects\\dev-spec-flow",
+  "exit_code": 0,
+  "findings": [],
+  "ok": true,
+  "summary": {
+    "artifacts": 5,
+    "errors": 0,
+    "markdown_files": 25,
+    "warnings": 0
+  }
+}
