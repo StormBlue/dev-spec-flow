@@ -7,6 +7,9 @@
 __pycache__/
 *.pyc
 
+# 本机 Agent 权限与会话配置，不属于可分发 Skill
+.claude/settings.local.json
+
 # OS
 .DS_Store
 Thumbs.db

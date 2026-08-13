@@ -1,151 +1,68 @@
-# UI 设计前置调研流程
+# UI 工作规则
 
-铁律 7 的展开。**永远不要直接开写 UI**——先看竞品 / 参考，确定方案，再写。
+UI 工作优先保持产品一致性和真实可用性。是否需要外部调研与用户确认取决于设计未知和影响面，不是所有 UI 修改的固定前置阶段。
 
-UI 是用户最直接感受到的产物，AI 自己脑补的设计往往是 "AI 味"——居中卡片、灰底蓝按钮、过度圆角、过度梯度——既没特色也不专业。
+## 先判断路径
 
----
+### 直接沿用项目模式
 
-## 标准流程
+适用于文案、局部样式、已有组件的清晰扩展或设计稿精确实现：
 
-```
-1. 工具盘点 (有什么 skill / MCP)
-2. 参考调研 (找类似项目的优秀做法)
-3. 草图方案 (粗略描述 / sketch)
-4. 用户确认
-5. 实现 (尽可能用 design system / 既有组件库)
-```
+1. 读取现有 design tokens、组件库、相似页面和局部规则。
+2. 按当前交互与视觉语言实现。
+3. 用与改动匹配的 viewport、状态和 a11y evidence 验证。
 
----
+### 先 explore / 确认方案
 
-## Step 1: 工具盘点
+以下情况先做有边界的设计探索：
 
-进 UI 阶段先看自己**这个环境里实际有什么**（以当前会话列出的 available skills / MCP 为准，别假设某个一定在）：
+- 新页面/新核心流程，没有现有模式；
+- 信息架构、交互方式或视觉方向有多种实质选项；
+- 用户给了品牌、竞品、Figma 或具体设计目标；
+- 改动会显著改变既有 workflow；
+- UX/accessibility 风险高，提前原型比直接编码更便宜。
 
-| 类型工具（有才用） | 何时用 |
-|--------------------|--------|
-| 前端设计类 skill | **首选** —— 写有设计感、不"AI 味"的前端 |
-| Figma 集成类 skill | 用户给了 Figma URL 按图实现 / 反向同步 / 建 design system |
-| 浏览器自动化 MCP（如 Playwright / Chrome DevTools） | 看竞品实际效果（截图 / 交互） |
-| **项目里已有的组件库** | shadcn/ui、Material UI、Ant Design、Chakra… |
+只有需要用户做产品/设计选择时才暂停确认。可逆的局部布局决策按项目模式推进。
 
-**优先用既有组件库**。设计系统是项目的资产，自己造轮子是债。
+## 项目内调研
 
----
+检查：
 
-## Step 2: 参考调研
+- UI framework、组件库、tokens、字体、icon 与状态组件；
+- 相似列表/表单/详情/导航流程；
+- 响应式断点、dark mode、i18n、a11y 约定；
+- 已有 screenshot/visual/browser 测试；
+- 最接近目标目录的设计规则。
 
-不参考直接写 = AI 味设计。参考路径：
+优先复用既有组件和交互，不为一个 feature 建第二套 design system。
 
-### A. 直接竞品
+## 外部参考
 
-如果用户的产品有明确竞品（如 "类似 Notion 的笔记"），打开竞品看：
+当前环境有浏览器、设计 skill、Figma 或图像工具且确实能降低未知时才使用。优先真实同类产品、平台 HIG/design system 和框架官方示例。提炼信息层级、状态与交互原则，不逐像素复制品牌作品。
 
-- 主导航怎么排
-- 信息密度
-- 留白习惯
-- 色彩 / 字体 / 间距规律
-- 微交互（hover、loading、empty state）
+探索结论写入 design/proposal；原始截图收藏与竞品摘录默认临时，除非它们是批准设计的正式输入。
 
-可以用 Playwright MCP 实际访问竞品页面截图。
+## 实现完整性
 
-### B. 设计灵感库
+按功能实际需要覆盖：
 
-| 库 | 适合 |
-|----|------|
-| [Mobbin](https://mobbin.com/) | 真实产品的截屏库，最好的 "现实参考" |
-| [Dribbble](https://dribbble.com/) | 设计师作品，很多偏概念，但视觉灵感丰富 |
-| [Page-Flows](https://pageflows.com/) | 整段 user flow 录屏 |
-| [Land-book](https://land-book.com/) | landing page 灵感 |
-| [Refero](https://refero.design/) | 按 UI 元素分类的截图 |
+- loading、empty、error、success、disabled、permission 等状态；
+- keyboard、focus、语义标签、读屏名称、对比度和 reduced motion；
+- 项目支持的 mobile/tablet/desktop 断点与输入方式；
+- 长文本、本地化、缩放与动态内容不溢出/遮挡；
+- 暗色模式仅在项目支持时保持一致；
+- 操作反馈、错误恢复和 destructive action 的清晰性。
 
-WebSearch 可以直接搜 "site:mobbin.com <feature>"。
+不要为不相关的局部改动扩张成全站 redesign。
 
-### C. 知名公司设计语言
+## UI Evidence
 
-- iOS HIG / Material Design / Fluent UI 当作底线
-- Stripe / Linear / Vercel / Notion 的产品作为审美锚点
-- 用户产品偏的领域有自己的"经典"（如电商看 Shopify、社交看 Twitter）
+根据 AC/SC 与风险选择：
 
-### D. 框架自带的 Showcase
+- component/existing automated tests：稳定交互契约；
+- browser/runtime：核心 flow、键盘与状态切换；
+- screenshot：布局、viewport、视觉状态；
+- inspection：小型 token/文案/DOM 语义改动；
+- a11y tool + manual keyboard/screen-reader check：高风险或核心流程。
 
-- Tailwind UI、Catalyst、Radix UI 的 demo
-- shadcn/ui 的 example pages
-- Vercel templates、Next.js examples
-
----
-
-## Step 3: 草图方案
-
-调研完，给用户一份**简短方案**。可以是文字 + ascii，也可以是 Figma 截图。模板：
-
-```markdown
-# UI 方案：<Feature Name>
-
-## 整体风格
-- 参考 [Linear 的设置页](url) 和 [Notion 的属性面板](url)
-- 主色调跟项目既有的（已扫到 #...）
-- 信息密度：偏高 / 中 / 低（说理由）
-
-## 主要页面
-
-### 1. 列表页
-[ascii 草图或截图链接]
-
-要点：
-- 顶部 toolbar：搜索 + 过滤 + 新建按钮
-- 表格 + 行内 hover 操作
-- 空态用插图，参考 Linear 的处理方式
-
-### 2. 详情页
-[ascii 草图或截图链接]
-
-要点：
-- 左侧导航 (sticky)，右侧内容
-- 顶部 breadcrumb + 操作按钮
-- ...
-
-## 组件复用
-
-- 表格用 shadcn/ui 的 Data Table（已有）
-- Modal 用项目内 Modal 组件（已有）
-- 新增 EmptyState 组件（项目缺）
-
-## 留给用户决策
-
-- [ ] 操作按钮放右上角还是行尾？（影响表格密度）
-- [ ] 删除走二次确认 modal 还是 toast 撤销？
-```
-
----
-
-## Step 4: 用户确认
-
-把方案给用户看，等到一句明确的 "OK" 才进 Step 5。
-
----
-
-## Step 5: 实现
-
-实现期注意：
-
-- **复用既有组件**优先于新写
-- **使用项目的 design tokens**（颜色 / 间距 / 圆角变量），不要硬编码
-- **Tailwind / CSS-in-JS / CSS Modules 选哪个**跟项目走，不要另立门户
-- **响应式**：mobile / tablet / desktop 三档至少都看一眼
-- **暗色模式**：项目支持就一起做，不要等到回头补
-- **a11y**：键盘 / screen reader / 对比度，不是后置选项
-
-详见 `code-review.md` 的 UI 部分检查清单。
-
----
-
-## 反模式
-
-❌ **不参考直接画**：典型 AI 味 —— 居中卡片、过度圆角、莫名渐变。
-
-❌ **过度参考**：每个像素都抄一个站点，没有自己的风格 / 项目一致性。**调研是吸收原则，不是复制粘贴**。
-
-❌ **不用既有组件库**：项目里有 shadcn/ui，AI 又自己写了一个 Button 组件。
-
-❌ **忽略响应式 / 暗色 / a11y**：上线前才发现移动端打不开。
+记录 viewport、route/state、输入和观察结果。只截默认页面不能证明错误态、响应式或交互完成。证据统一进入 `verification.md`，不额外生成 UI review 堆栈。

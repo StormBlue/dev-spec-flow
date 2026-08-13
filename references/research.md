@@ -1,126 +1,95 @@
-# 调研策略与工具优先级
+# Explore：有边界的调研
 
-Phase 1 的核心问题：**怎么快速搞清楚做这事的最佳实践，不要拍脑门**？
+`explore` 用来降低会改变方案的未知，不是每次开发都进行一轮广泛搜索。局部、熟悉、可从项目中确定的工作可以跳过。
 
----
+## 何时触发
 
-## 工具优先级（从高到低）
+出现以下任一信号时使用 `explore`：
 
-### 1. context7 MCP（如果可用）
+- 项目现状、现有行为或约束不清楚；
+- 使用版本敏感、陌生或快速变化的框架/SDK/API；
+- 存在多个会显著影响产品、成本、安全或迁移的方案；
+- [risk-policy.md](risk-policy.md) 的 `novelty` 或其他高风险 driver 未被证据控制；
+- UI 是新体验、没有既有设计模式，见 [ui-design.md](ui-design.md)；
+- 用户明确要求调研、比较或采用当前最佳实践。
 
-**最适合**：库 / 框架 / SDK / CLI 工具的最新文档。它只有两个工具：
+不为熟悉的局部实现、纯机械改动或已有明确项目模式重复搜索。
 
-```
-resolve-library-id
-  → 给 libraryName 拿到 /org/project 形式的 ID
-get-library-docs
-  → 用上一步的 ID 拿到精准的当前版本文档（可指定 topic）
-```
+## 调研顺序
 
-> 实际工具名前缀随安装方式而定（如插件形式可能是 `mcp__plugin_context7_context7__resolve-library-id`），但核心两个动作就是 `resolve-library-id` → `get-library-docs`。**先看自己环境里 context7 是否真的可用**，不可用就走下面的 WebFetch 官方文档。
+### 1. 项目事实优先
 
-**为什么优先**：训练数据里的 API 经常已经过时，特别是 React、Next.js、Tailwind、Pydantic 这种迭代快的库。context7 给的是当前最新文档。
+先读：
 
-**典型场景**：
+- 适用的 agent/贡献/架构规则；
+- `openspec/specs/`、相关 active change 和历史决策；
+- 相似模块、测试、依赖清单、锁文件、构建脚本；
+- `README.md`、`ARCHITECTURE.md`、相关 `docs/`；
+- docs-architect 的 impact/relations（若启用）。
 
-- "用 Next.js App Router 怎么做 streaming?"
-- "Stripe Checkout 现在的 webhook 签名校验怎么写？"
-- "TanStack Query v5 的 useQuery 接口"
+项目既有兼容约束和局部模式通常比通用最佳实践更有约束力。
 
-### 2. 当前可用的相关 skill
+### 2. 使用实际可用的工具
 
-**先看自己这个环境里实际加载了哪些 skill**（不同用户/项目装的 skill 不一样，不要假设某个一定存在）。看到有对得上当前任务的，优先用——skill 本身就是该领域最佳实践的集合，比自己从头调研快得多。
+检查当前环境的 skills、MCP、浏览器、搜索和本地 CLI；按任务选择，不假定工具名或平台能力。需要库/SDK 当前 API 时优先官方文档、官方 changelog/RFC 和项目锁定版本对应资料。
 
-常见可能有用的类型（**有才用，没有就跳过**）：
+### 3. 外部资料补未知
 
-| 任务类型 | 可能的 skill（如环境里存在） |
-|----------|------------------------------|
-| 前端 / UI 设计 | 前端设计类 skill |
-| Anthropic API / Claude SDK | Claude API 类 skill |
-| Figma 设计稿实现 / 设计系统 | Figma 集成类 skill |
-| 项目文档架构 | 文档架构类 skill |
-| 代码简化 / 安全审计 | `/simplify`、`/security-review`（通常内置） |
+在项目事实仍不足时查询：
 
-判断"有没有"的依据是当前会话里 system reminder 列出的 available skills，而不是这张表。
+1. 官方文档、规范、迁移指南、安全公告；
+2. 维护者仓库、release notes、issue/讨论；
+3. 可信工程资料与相似开源实现；
+4. 设计参考与真实产品，仅用于提炼模式，不复制成品。
 
-### 3. WebSearch / WebFetch
+记录资料日期/版本。搜索“当前年份”只是线索，不替代核实来源是否适用于项目版本。
 
-**最适合**：
+## 问题驱动与停止条件
 
-- 业界趋势 / 最佳实践 / 设计模式比较
-- 找参考项目（GitHub 上的同类 OSS）
-- 找设计参考（Dribbble / Mobbin / 真实产品）
-- 看博客 / 官方设计文档
+开始前列出会改变决策的问题，例如：
 
-**搜索技巧**：
+- 当前项目是否已有可复用机制？
+- 候选 API 在锁定版本中的真实接口是什么？
+- 哪个风险 driver 需要先做 spike/验证？
+- 哪项选择需要用户授权？
 
-- 加上当前年份限定结果新鲜度（"2026 best practice for X"）
-- 加 `site:github.com` 找代码示例
-- 找 RFC、design doc、changelog 比新闻报道靠谱
+满足以下条件即停止：
 
-### 4. 阅读项目自身代码
+- 每个关键问题已有足以做决定的事实，或被标为真正开放问题；
+- 候选方案可按项目约束与风险比较；
+- 下一步 ready task 已明确；
+- 新搜索只重复既有结论，未改变风险或选择。
 
-**永远要做**。在调研 "X 怎么实现" 之前，先扫一遍现有项目：
+使用时间盒作为提醒而非硬期限。接近上限仍不确定时缩小 spike，或向用户提出会改变范围的具体问题。
 
-- **`openspec/specs/`**（如有）——这是系统当前行为的真相源，最权威的现状描述，且能告诉你这次改动该落在哪个 domain、是否触及已有 Requirement。
-- `README.md`、`ARCHITECTURE.md`、`docs/`
-- `package.json` / `pyproject.toml` / `Cargo.toml` / `go.mod` 的依赖列表
-- 已有的相似模块怎么写的（最大的灵感来源）
-- 项目特有的工具函数、helper、abstraction
+## 调研产出
 
-**为什么**：项目已有的约定 > 业界最佳实践。你的目标是融入这个项目，不是给它另起炉灶。
-
----
-
-## 调研产出格式
-
-调研做完，给用户一份**技术决策摘要**。模板：
+只保留决策所需内容：
 
 ```markdown
-# 技术调研：<Feature Name>
+## Explore Summary
 
-## 1. 核心选型
+### Project facts
+- <现有模式/约束，附仓库路径>
 
-| 维度 | 选型 | 理由 | 备选 |
-|------|------|------|------|
-| 框架 | Next.js 15 | App Router 适合 SSR，团队已用 | Remix（少一票） |
-| 状态 | TanStack Query | 服务端状态最佳实践 | SWR（功能少） |
-| ... | ... | ... | ... |
+### Decision
+- <选择及理由>
+- Rejected: <重要备选及不选原因>
 
-## 2. 关键架构模式
+### Risk changes
+- <新增/降低的 driver 与保障>
 
-- **模式 A**：用 Server Components 做数据初始拉取，Client Components 做交互
-- **模式 B**：API 用 tRPC 统一类型
-- ...
+### Open questions
+- <只有真正需外部决定的事项>
 
-## 3. 主要风险
-
-| 风险 | 概率 | 缓解 |
-|------|------|------|
-| 第三方 SDK 限流 | 中 | 加缓存 + 限速 + 重试 |
-| ... | ... | ... |
-
-## 4. 留给用户决策的开放问题
-
-- [ ] 选 Stripe 还是 Paddle？（影响订阅模型）
-- [ ] 是否需要支持离线？（影响 PWA / 本地存储设计）
-- [ ] 支持的语言列表？
-
-## 5. 参考资料
-
-- [Next.js App Router 官方迁移指南](url)
-- [Stripe Checkout best practices](url)
-- 类似项目: [openstatus/openstatus](https://github.com/...) — 状态页参考
+### Sources
+- <官方/一手链接，注明适用版本或日期>
 ```
 
----
+- 影响范围/验收的结论写入 proposal。
+- change-local 技术权衡写入 design。
+- 跨 change 的长期决策提升为 ADR。
+- 风险变化写入 proposal 的 risk metadata/summary。
+- 原始搜索摘录、重复候选笔记与 agent 输出默认临时，close 时删除；不要创建永久 `research-*.md` 堆积。
 
-## 反模式
-
-❌ **不调研直接写**：靠记忆中的 API 写代码，跑起来才发现接口变了。
-
-❌ **过度调研**：调研一星期还没出方案。**给自己定时间盒** —— 大需求 1-2h，小需求 15-30min。
-
-❌ **调研结果不告诉用户**：自己默默选了一个栈就开干，用户后来才发现选错了。**永远要给用户看摘要**。
-
-❌ **不留参考链接**：决策完没记 source。半年后回看忘了为什么选这个。
+不要伪造来源、版本、benchmark 或“业界共识”。无法核实就标 unknown。

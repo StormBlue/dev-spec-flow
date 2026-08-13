@@ -1,137 +1,66 @@
-# Git 流程：先建分支 · 每任务 commit · 里程碑 push
+# Git 协作与交付
 
-留痕要细（commit 到单任务粒度），但推远端要稳（push 到里程碑/授权粒度）。这样既能随时回滚到某个任务，又不会把半成品频繁推上共享远端。
+Git 行为首先服从用户明确要求和仓库既有流程。本 skill 提供安全默认值，不擅自覆盖团队的分支、commit、PR 或发布政策。
 
----
+## 分支
 
-## 0. 开发前：先建 feature 分支
+1. 检查当前分支、upstream、工作树和仓库说明。
+2. 用户指定在 `develop`、现有 feature 分支或 worktree 中工作时按其要求执行。
+3. 用户未指定且共享主分支不适合直接开发时，默认创建符合项目命名的 feature 分支；否则保持当前分支。
+4. 不因为模板规则切换分支并遗留用户未提交改动；有冲突风险时先报告。
 
-进入 Phase 3 开发循环**之前**，先切一个 feature 分支，不要直接在 `main`/`master`/`dev` 等共享分支上做：
+分支是协作工具，不是 action gate。change ID 与 branch 名可以关联，但稳定身份是 REQ ID，不依赖分支路径。
 
-```bash
-git switch -c feat/<change-id>      # 如 feat/add-team-todo
+## Commit 粒度
+
+一个 commit 应是可理解、可评审、可恢复的连贯单元：
+
+- 可以完成一个 task，也可以包含多个不可合理拆分的紧耦合 task；
+- 一个大 task 也可以拆成多个保持构建/迁移安全的 commit；
+- 代码、对应 delta/tasks/evidence 更新通常同 commit；
+- close 的 spec merge、文档同步、压缩、归档和索引在获得 commit 授权时形成一个原子 commit；未获授权时保留经过校验的 worktree Close，并明确标记未提交，不伪造 repository-level 原子 revision。
+
+不强制“每 task 一个 commit”，也不把每次状态 emoji 更新单独 commit。避免把无关重构、格式化或用户已有改动混入。
+
+## Commit 信息与追溯
+
+跟随仓库已有格式；没有约定时可用 Conventional Commits。需要追溯时在 body/trailer 引用稳定 ID：
+
+```text
+feat(auth): expire idle sessions
+
+Requirement: REQ-2026-042
+Tasks: T-003
+Validates: REQ-2026-042#AC-2, SC-auth-012
 ```
 
-分支名跟 change-id 对齐，或跟项目已有约定走（先扫 `git branch -a` 和 `git log` 看习惯）。
+只写实际完成和实际运行结果，不复制整份 tasks 或预测测试状态。
 
----
+## Push 与远程动作
 
-## 1. 每个任务：commit（本地粒度）
+- push、开 PR、合并、发布和删远程分支是对外动作，按用户请求或仓库自动化执行。
+- 用户明确要求推送目标分支时，完成验证与 commit 后推送该分支并核对 remote ref。
+- 不把“里程碑完成”当成普遍 push 规则。
+- push 被拒绝时先 fetch/检查分歧；不要未经授权 force push 或改写已共享历史。
 
-```
-任务 T 自检完毕 → 测试通过 → 备注块写完 → tasks.md 状态改 ✅ → commit
-```
+## 安全边界
 
-**单任务一个 commit**，文档改动跟代码一起进这个 commit（见下「文档与代码一起 commit」）。
+未经明确授权不要：
 
-不要：
-- ❌ 攒一堆任务才 commit（回滚粒度太粗）
-- ❌ 自检/测试还没过就 commit
+- `push --force`/`--force-with-lease`；
+- 对用户或共享历史执行 destructive reset、checkout/restore 覆盖；
+- rebase/amend 已推送的公共 commit；
+- 删除远程分支、绕过 hooks、提交 secret；
+- 用自动 stash/clean 隐藏或删除来源不明的工作树变化。
 
----
+hook/CI 失败时修根因并重新验证。若失败暴露与当前 change 无关的既有问题，记录证据和影响，不擅自扩大修改范围。
 
-## 2. 里程碑边界：push
+## Close 的 Git 边界
 
-**不必每个任务都 push。** 在里程碑边界（一组关联任务全 ✅、跑完增量验证）统一 push：
+[close-and-retention.md](close-and-retention.md) 的最终 Git commit 是获授权时的逻辑原子边界；文件系统 journal/rollback 是无 commit 情况下的完整性边界。commit 前检查：
 
-```
-里程碑 M 全部 ✅ → 跑增量验证（测试 + 真跑 app）→ push
-```
-
-```bash
-git push -u origin feat/<change-id>   # 首次
-git push                              # 之后
-```
-
-**什么时候可以更早 push**：用户明确要求、或你长时间在自己的独立分支上工作（怕机器挂丢进度）。**协作仓库 / 共享分支**按团队约定走（通常是开 PR），不要擅自推。
-
-> 一句话：**commit 频（每任务），push 稳（每里程碑或授权时）**。push 是 outward-facing 动作，缺省保守。
-
----
-
-## 3. Commit 信息约定
-
-**默认走 Conventional Commits**（除非项目已有别的约定，扫一遍 `git log` 跟着学）：
-
-```
-<type>(<scope>): <subject>
-
-<body, 可选>
-```
-
-| type | 用途 | | type | 用途 |
-|------|------|-|------|------|
-| `feat` | 新功能 | | `docs` | 文档 |
-| `fix` | bug 修复 | | `test` | 测试 |
-| `refactor` | 重构（不改行为） | | `chore` | 构建/工具/杂项 |
-| `perf` | 性能 | | `ci` | CI/CD |
-| `style` | 代码风格 | | `review` | 审核轮修复（本 skill 约定） |
-
-- subject：祈使句、小写起头、不加句号、≤ 72 字符。中文项目用中文 OK：`feat(auth): 实现邮箱+密码登录`。
-- scope：模块/子系统名。
-
-### body 关联任务
-
-任务驱动开发的好习惯——commit body 链接 `tasks.md` 中的任务编号：
-
-```
-feat(auth): 实现邮箱+密码登录
-
-完成 openspec/changes/user-system/tasks.md 中的 Task 2.1（实现 R-auth-1）。
-
-- 添加 /api/login endpoint
-- 用 argon2 哈希密码
-- 加 rate limit (5 次/分钟)
-- 测试：覆盖 spec 中"凭据有效/无效"两个 scenario
-```
-
----
-
-## 4. 文档与代码一起 commit
-
-每个任务结束时 `tasks.md` 已被改过（状态、备注），可能 `proposal.md`/`spec.md`/`design.md` 也被改过（实现偏离时实时更新）。这些**和代码改动一起 commit**，不要单独拆成 `docs:`：
-
-```bash
-git add src/auth.ts openspec/changes/user-system/tasks.md
-git commit -m "feat(auth): 实现登录"
-```
-
-**例外**：纯文档改动（修文案、补图）走 `docs:` 没问题。归档（Phase 5，merge delta 回 `openspec/specs/`）单独 commit，如 `chore(specs): 归档 add-2fa，merge 进 auth spec`。
-
----
-
-## 5. 不能做的事
-
-绝不在没有用户明确授权时做：
-
-- `git push --force` / `--force-with-lease`
-- `git reset --hard <公共分支>`
-- `git rebase -i` / `git commit --amend` 已推过的 commit
-- 删远程分支（`git push origin --delete`）
-- 跳 hook（`--no-verify`）
-
-**hook 失败时**：① 看错误、理解为什么挂 ② 修根因（lint 报错改代码、test 挂改实现）③ **不要 amend 那个失败的 commit**（hook 失败时 commit 其实没发生），修好后重新 stage + commit。
-
----
-
-## 6. 完整 commit 示例
-
-```bash
-git status   # 先确认 staging 干净、没有 secret 文件
-git commit -m "$(cat <<'EOF'
-feat(payment): 接入 Stripe Checkout
-
-完成 openspec/changes/payment/tasks.md Task 1.3（实现 R-payment-1、R-payment-2）。
-
-实现要点：
-- 用 Stripe Checkout Session（hosted page，避免自己处理 PCI）
-- webhook 用 raw body + 签名校验防伪造
-- 幂等接收，失败重试交给 Stripe
-
-依赖：stripe@17.4.0（锁死版本）
-测试：覆盖 spec 的 3 个 scenario + webhook 重放
-EOF
-)"
-```
-
-里程碑做完再 `git push`。
+- delta 已按 ID 正确 merge；
+- active change 已移出且链接/索引有效；
+- `completed_at/archived_at` 是真实事件时间；
+- 没有遗留临时 review/research/debug 文件；
+- staged diff 不含用户无关改动。

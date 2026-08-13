@@ -1,86 +1,122 @@
-# 运行时验证 + 测试即任务
+# Evidence 与验证策略
 
-铁律 ⑧ 的展开。解决一个常见失败模式：**质量保障全靠读代码 + 把验证压到最后**——等写完一大堆才第一次真跑，集成问题暴露得最晚、修得最贵。
+验证的目标是为验收主张取得足够可信、可复查的证据。Scenario 是验收示例，不天然要求新增一条自动化测试。
 
-原则：**验证要前置、要真跑、要可重复**。读代码不算验证，跑起来才算。
+## 单一证据清单
 
----
+一个 change 默认只维护 `verification.md`。每条记录至少包含：
 
-## 一、测试是一等公民（不是事后补）
-
-### Scenario 就是测试用例
-
-spec 里每条 `#### Scenario:`（WHEN/THEN）天然是一个测试用例。这是需求与测试之间的桥：
-
-```markdown
-# spec.md
-#### Scenario: 凭据无效
-- WHEN 用户提交错误密码
-- THEN 返回 401
-- AND 不签发 token
-```
-↓ 落成
-```ts
-// auth.test.ts
-test("凭据无效返回 401 且不签发 token", async () => {
-  const res = await login({ email, password: "wrong" });
-  expect(res.status).toBe(401);
-  expect(res.body.token).toBeUndefined();
-});
+```yaml
+id: AC-1
+status: passed
+validates:
+  - REQ-2026-042#AC-1
+  - SC-auth-012
+methods:
+  - command
+evidence:
+  - kind: command
+    ref: openspec/changes/add-session-expiry/evidence/auth-check.txt
+    description: "Captured command and observed 401 result without a token"
 ```
 
-### 测试进 tasks.md
+执行时间和整体 revision 分别记录在 verification metadata 的 `verified_at` 与
+`verified_against`；后者优先使用覆盖本次实现的完整不可变 Git commit OID。若验证发生在 commit
+前，把 base commit、排序后的 in-scope 路径、逐文件 hash、删除项与工作树状态写入 change 下的
+deterministic revision capture，再使用 `sha256:<capture-digest>@<repository-relative-capture>`。
+单文件 hash 只有在变更确实只涉及该文件时才能代表整体 revision。不要使用 `HEAD`、分支或 tag。
+单条 evidence 保持 docs-architect 的 `kind/ref/description` 形状。
 
-不要把测试塞进"自检"里一笔带过。**在 `tasks.md` 里把测试列成显式任务或子任务**：
+`AC-N` 是 proposal 内的局部序列化 ID；verification 的 `id` 可以保持 `AC-N` 以与 proposal
+一一匹配。`validates` 在同一 change 内可使用该局部形式，但需要跨 artifact/change 消歧时使用
+`<REQ-ID>#AC-N`。BR/SC 始终使用其全局稳定 ID。
 
-- 简单做法：每个功能任务的验收里加一条"对应 scenario 的测试已写且通过"。
-- 复杂做法：独立测试任务（如 `Task 2.3 为支付流程写集成测试`），依赖对应实现任务。
+`ref` 必须可检查：仓库相对路径及 locator、不可变 commit/PR、耐久 URL、捕获结果或截图。计划运行的命令、测试源码存在或一句“已验证”都不是执行成功的证据。
 
-### 测试策略跟项目走
+Close readiness 对 `passed` acceptance、passed review 和 aggregate command/log 另有一层
+observed capture 门禁：至少一条 evidence 必须是 `command`、`log`、`screenshot` 或
+`document`，且指向当前 change 下的普通文件（通常是 `evidence/`），不能带测试 locator。
+测试源码、任意生产文件和 commit 只能作为 supporting reference，不能单独声称命令已经执行。
+`evidence/` 不是另一份 manifest：只放实际观察 capture，并由 `verification.md` 统一解释。仍被
+验收、review、revision anchor 或 completion summary 引用的 capture 必须保留；只有解除所有引用
+并显式登记到 `ephemeral_artifacts` 后，summary/minimal close 才可删除。
 
-- **先看项目已有的测试**：框架（Vitest/Jest/pytest/go test/cargo test…）、目录约定、mock 方式、覆盖率门槛——融入，别另起炉灶。
-- 项目没有测试基建时：与用户确认是否引入（属于"外部决策"，可停下问）。不要默默塞一套新框架。
-- **测试金字塔**：多写单元/集成（快、稳），E2E 留给关键用户流程。
-- 关键的非功能 Requirement（性能/安全）也尽量有可执行的检查（基准测试、`npm audit` 之类）。
+## 可选证据方法
 
----
+| Method | 适用情况 | 最低记录 |
+|---|---|---|
+| `existing-test` | 已有测试准确覆盖本次行为且仍适用 | 测试 locator + 本次实际运行结果 |
+| `automated` | 稳定且有持续回归价值的行为 | 新/改测试 locator + 实际结果 |
+| `command` | build、lint、typecheck、migration check、benchmark | 完整命令、环境要点、退出/测量结果 |
+| `runtime` | 服务、CLI、桌面/移动应用真实运行 | 启动方式、输入、观察结果 |
+| `inspection` | 配置、生成物、静态约束或小型文案检查 | 检查范围、判据、观察结果 |
+| `screenshot` | UI 布局、视觉状态、跨视口 | 图片路径、viewport/state、关联 AC/SC |
 
-## 二、增量验证（里程碑边界）
+`not_applicable` 是 acceptance 结果而不是 evidence method；通过带 authority、reason 和
+证据的 `waived` verification 结果表达。
 
-每完成一个里程碑（一组关联任务全 ✅），在 push 之前真跑一遍，别攒到 Phase 4：
+可以用一种证据覆盖多个 AC/SC，也可为一个高风险 AC 组合多种证据。关系必须显式。
 
-```
-里程碑 M 完成 → 跑测试套件 → 真跑 app 验证本里程碑的用户路径 → 扫超长文件 → push
-```
+## 何时新增自动化测试
 
-- **跑测试 / lint / type check**：`<项目的测试命令>`、`tsc --noEmit`、`pyright`/`mypy`、`cargo check`、`go vet` 等，确保没挂。
-- **真跑 app**：用 `/verify`（构建+运行确认行为）或 `/run`（启动并驱动 app）。CLI、server、TUI、浏览器应用都可——按项目类型走。
-- **手动走一遍**本里程碑交付的主路径，从用户视角确认顺畅。
+以下情况通常值得新增或强化自动化测试：
 
-增量验证的价值：集成问题在**当下**暴露（上下文还热、改动还小），而不是 20 个任务之后。
+- 修复过的缺陷需要可靠复现并防止回归；
+- 公共 API、数据格式、协议或稳定业务规则；
+- 鉴权、金额、权限、迁移、幂等、并发等高后果边界；
+- 多个消费者依赖且人工验证容易遗漏；
+- 测试可稳定、快速运行，维护成本低于其预防价值。
 
----
+以下情况不默认新增永久测试：
 
-## 三、最终验证（Phase 4 内）
+- 文案、样式微调或一次性配置，inspection/screenshot 更直接；
+- 已有较低层测试充分覆盖，新增测试只重复同一断言；
+- 行为依赖脆弱的外部环境，稳定契约检查或受控 inspection/runtime 更可信；
+- 为测试 trivial glue 需要大量 mock，且不能证明真实行为；
+- 项目没有测试基建，而引入框架的成本/边界尚未获授权。
 
-Phase 4 的并行审核里，**功能正确性视角**的 agent 必须做运行时验证，而非只读代码：
+不要为覆盖率数字测试无意义实现细节，也不要因“不是自动化”而把可复查证据降格为无效。
 
-- 拿 spec 的 **scenario 列表逐条跑**（用 `/verify` / `/run` / 手动）。
-- happy path + 异常路径都要实际触发一次。
-- 覆盖不了的（如需真实第三方环境）明确标注"未验证 + 原因"，别假装过了。
+## 验证时机与范围
 
-详见 [`review-agents.md`](review-agents.md) 的功能视角与 [`final-review.md`](final-review.md)。
+### Apply 期间
 
----
+在一个连贯实现单元结束时运行 **impacted checks**：与改动直接相关的现有测试、静态检查、构建或短 smoke。尽早验证高风险假设。不要每个机械子任务都重复全套命令。
 
-## 四、反模式
+### Verify / Close 前
 
-❌ **只读代码当验证**：从没真跑过，上线才发现启动就崩。
+仅补齐缺失、陈旧或因后续改动失效的证据：
 
-❌ **测试留到最后一起补**：写到一半的实现细节早忘了，补出来的测试只测了 happy path。
+1. 对照 AC/SC 清单找缺口。
+2. 检查证据 revision 与当前 diff 是否仍匹配。
+3. 按风险决定是否需要更广 regression、真实运行、迁移/回滚或专项测量。
+4. 将实际结果写入 `verification.md`。
 
-❌ **验证压到 Phase 4**：25 个任务写完才第一次跑，集成全炸，定位成本爆炸。
+若 apply 期间的可信结果仍覆盖当前代码，不因进入 verify/review/close 再跑同一检查。review 负责判断证据是否充分，只有证据缺失、矛盾、陈旧或需要复现 finding 时才重跑。
 
-❌ **scenario 与测试脱节**：spec 写了 10 个 scenario，测试只覆盖了 3 个，剩下 7 个没人验证。
+Close 只改变生命周期字段、引用路径、压缩内容或 archive 位置时，不会自动使行为证据失效；CLI
+应重写受影响的 repository-relative refs。若 Close 同时修改实现、当前行为条款或被验证的 durable
+文档内容，则必须重新运行受影响检查并更新 `verified_at`/`verified_against`。
 
-❌ **绿了就信**：测试全过但从没手动用过——自动化测试覆盖不到的体验问题（布局错乱、空态难看）照样漏。
+当目标仓库启用 docs-architect 时，`documentation_checks` 必须分别记录成功的
+`operation: impact`、`operation: check` 和 `operation: index` 捕获。三者都应引用 change
+下的 JSON 结果；`impact` 至少含 changed/affected/findings 数组，`check` 的 summary.errors
+必须为 0，`index` 必须证明 `write: true`。一条普通 command 描述不能复用为三种握手。
+
+## 失败、延期与豁免
+
+- 失败证据必须保留到问题解决，并记录后续通过证据；不得覆盖失败历史来伪装一次通过。
+- `deferred` 不能直接满足原验收条件。要么保持 requirement 未完成，要么把剩余范围转成有稳定 ID 的新 requirement/issue，并取得对原 acceptance 变更的授权。
+- waiver 表示经可解析的人类授权确认该验收不适用，Close 时映射为 `not_applicable`；它必须同时有 authority、理由和证明该处置的 evidence，不能表示“未验证但算通过”，也不能由实现 agent 自批。
+- 需要真实第三方、密钥或设备而无法验证时，明确缺口和影响；风险不允许时不得 close。
+
+## Close readiness
+
+`close` 前逐项确认：
+
+- 所有 AC 状态为 `passed` 或有证据的 `not_applicable`；
+- 每项至少一个可解析证据，且证据支持其主张；
+- 高风险 driver 的负路径、回滚或契约保障已覆盖；
+- 项目要求的 build/lint/typecheck/test 门禁已实际运行，或有明确不适用理由；
+- 文档影响已处理，见 [docs-architect-integration.md](docs-architect-integration.md)；
+- 未解决问题没有被埋在自由文本里。

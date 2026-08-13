@@ -1,0 +1,4 @@
+interface:
+  display_name: "Dev Spec Flow"
+  short_description: "Risk-driven specs, implementation, evidence, and closure"
+  default_prompt: "Use $dev-spec-flow to turn this development request into a traceable, risk-driven change and carry it through close."

@@ -1,0 +1,65 @@
+{
+  "artifacts": [
+    {
+      "id": "EVID-REQ-2026-001",
+      "path": "openspec/changes/upgrade-risk-driven-workflow/verification.md",
+      "relations": [
+        {
+          "target": "REQ-2026-001",
+          "type": "validates"
+        }
+      ],
+      "status": "active",
+      "title": "Verification for REQ-2026-001",
+      "type": "evidence"
+    },
+    {
+      "id": "PLAN-REQ-2026-001",
+      "path": "openspec/changes/upgrade-risk-driven-workflow/tasks.md",
+      "relations": [
+        {
+          "target": "REQ-2026-001",
+          "type": "implements"
+        }
+      ],
+      "status": "active",
+      "title": "Implement the risk-driven dev-spec-flow upgrade",
+      "type": "exec-plan"
+    },
+    {
+      "id": "REQ-2026-001",
+      "path": "openspec/changes/upgrade-risk-driven-workflow/proposal.md",
+      "relations": [],
+      "status": "in_progress",
+      "title": "Upgrade dev-spec-flow to a risk-driven lifecycle",
+      "type": "requirement"
+    },
+    {
+      "id": "SYS-dev-spec-flow",
+      "path": "SKILL.md",
+      "relations": [
+        {
+          "target": "REQ-2026-001",
+          "type": "documents"
+        }
+      ],
+      "status": "active",
+      "title": "Dev Spec Flow canonical workflow",
+      "type": "system-doc"
+    },
+    {
+      "id": "SYS-dev-spec-flow-guide",
+      "path": "README.md",
+      "relations": [
+        {
+          "target": "REQ-2026-001",
+          "type": "documents"
+        }
+      ],
+      "status": "active",
+      "title": "dev-spec-flow user and maintainer guide",
+      "type": "system-doc"
+    }
+  ],
+  "schema_version": 1
+}

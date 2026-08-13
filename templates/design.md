@@ -1,78 +1,86 @@
-# Design — <Change 标题>
+# Design: <Change Title>
 
-> 复制到 `openspec/changes/<change-id>/design.md`。
-> **仅在满足任一条时才写**：跨模块 / 新外部依赖 / 重大数据模型变化 / 安全 / 性能 / 迁移复杂 / 编码前需先做技术决策。否则跳过。
-> 聚焦架构与「为什么」，不写逐行实现。说明见 [`references/openspec-model.md`](../references/openspec-model.md) 第三节。
-
-**Change ID**: `<add-team-todo>`
-**关联**: [`proposal.md`](./proposal.md) · [`tasks.md`](./tasks.md)
-
----
+Create `design.md` only when the change needs a durable technical choice: cross-module or
+cross-service interaction, a new dependency, a security boundary, migration or rollback,
+performance or concurrency work, or material implementation ambiguity. Keep observable behavior
+in the delta spec. Promote only cross-change architectural decisions to an ADR.
 
 ## Context
 
-<背景、当前状态、约束、相关方。引用 proposal 的动机、spec 的需求。>
+- Requirement: `REQ-YYYY-NNN`
+- Relevant behavior: `BR-<domain>-NNN`
+- Current architecture and constraints: TODO
+- Material unknowns: TODO
 
-## Goals / Non-Goals
+## Goals And Non-Goals
 
-**Goals**
-- <这个设计要达成什么>
+### Goals
 
-**Non-Goals**
-- <明确不在本设计范围内的>
+- TODO
 
-## 技术栈与依赖
+### Non-goals
 
-| 维度 | 选型 | 版本 | 理由 |
-|------|------|------|------|
-| 运行时 | <Node 22 / Python 3.13> | <精确版本> | <...> |
-| 框架 | <...> | <...> | <...> |
-| 新增依赖 | <pkg> | <最新固定版> | <用途> |
+- TODO
 
-> 依赖锁版规则见 [`references/dev-rules.md`](../references/dev-rules.md) 第 3 条。
+## Risk Drivers
+
+List only applicable failure risks and the design response for each.
+
+| Driver | Failure mode | Design response |
+|---|---|---|
+| security / data / contract / concurrency / operations | TODO | TODO |
 
 ## Decisions
 
-> 关键技术选择 + 理由（为什么 X 不选 Y）+ 考虑过的备选。
+### Decision: <Title>
 
-### Decision: <标题>
-<选了什么，为什么。备选 + 放弃原因。>
+- Choice: TODO
+- Why: TODO
+- Alternatives considered: TODO
+- Consequences and trade-offs: TODO
+- Promote to ADR: yes / no; reason
 
-## 架构概览
+## Architecture And Boundaries
 
-```mermaid
-graph LR
-  Client --> API
-  API --> Service
-  Service --> DB[(Database)]
-```
-
-### 数据模型（如涉及）
+Describe ownership, trust boundaries, dependencies, and data flow. Add a diagram only when it
+makes the relationship clearer than prose.
 
 ```mermaid
-erDiagram
-  USER ||--o{ TODO : owns
+flowchart LR
+  A[Caller] --> B[Changed boundary]
+  B --> C[Dependency]
 ```
 
-### 关键流程（复杂时画时序图）
+## Contracts And Data
 
-```mermaid
-sequenceDiagram
-  User->>API: POST /login
-  API->>DB: SELECT user
-  API-->>User: { token }
-```
+- API or event compatibility: not applicable / TODO
+- Data model and invariants: not applicable / TODO
+- Authorization, privacy, and untrusted input: not applicable / TODO
+- Concurrency and idempotency: not applicable / TODO
 
-## Risks / Trade-offs
+## Migration And Recovery
 
-| 风险 | 概率 | 影响 | 缓解 |
-|------|------|------|------|
-| <第三方限流> | 中 | 高 | <缓存 + 重试 + 降级> |
+- Rollout sequence: TODO
+- Backward compatibility window: TODO
+- Data migration or backfill: not applicable / TODO
+- Rollback trigger and procedure: TODO
+- Safe resume point after interruption: TODO
 
-## Migration Plan（如涉及数据/接口迁移）
+## Operations
 
-- <部署步骤、回滚策略、数据迁移演练>
+- Observability and diagnostics: TODO
+- Capacity or performance limits: not applicable / TODO
+- Failure handling and degradation: TODO
+
+## Verification Hooks
+
+Identify the interfaces or invariants that can produce acceptance evidence. Do not prescribe a
+new test when an existing check, runtime observation, inspection, or captured command is enough.
+
+| Acceptance or Scenario | Useful hook | Risk addressed |
+|---|---|---|
+| `AC-1` / `SC-<domain>-001` | TODO | TODO |
 
 ## Open Questions
 
-- [ ] <待解决的技术未知数>
+- None recorded.

@@ -1,195 +1,79 @@
-# 开发期 9 条铁律 (展开)
+# Apply：交付原则
 
-这是 SKILL.md / AGENTS.md 中 Phase 3 9 条铁律的扩展说明，配上场景和反例。
+这些原则约束实现质量，但不把每个 task 变成固定仪式。执行节奏见 [workflow.md](workflow.md)，保障强度见 [risk-policy.md](risk-policy.md)。
 
----
+## 1. 项目约定优先
 
-## 1. 严守开发规范
+遵守最接近目标文件的项目指令、格式化/静态检查、命名、目录、测试和 Git 约定。修改前阅读相似模块；优先复用本地 helper、组件、抽象和错误模型。
 
-**做什么**：进入项目第一件事，扫一遍这些文件，把里面的约定吃透：
+通用建议与项目约定冲突时：安全底线和用户明确要求优先，其余跟项目走。不要借新 feature 顺手重写无关模块。
 
-- `CONTRIBUTING.md`
-- `CLAUDE.md`、`AGENTS.md`、`.cursorrules`、`.windsurf` 等 agent 配置
-- `.editorconfig`、`.prettierrc`、`.eslintrc*`、`.ruff.toml`、`pyproject.toml`、`Cargo.toml`
-- `package.json` 中的 `scripts`、`engines`、`packageManager` 字段
-- 任何 `STYLE.md` / `naming.md` / `architecture.md`
+## 2. 保持类型与边界清晰
 
-**为什么**：项目里已有约定就是 PR 评审的标准。AI 写出来的代码如果跟项目风格脱节，第一轮 review 就被打回。
+- 使用项目已有的类型系统和严格度，不新增无理由的 `any`、裸 `Object`、忽略指令或不安全断言。
+- 对外部输入、反序列化、网络/文件数据在边界验证；内部代码依赖验证后的类型。
+- 公共 API、错误和 nullability 与现有契约一致。
+- 若历史代码无法一次消除不安全类型，局部隔离并说明原因，不把范围扩大成全面重构。
 
-**反例**：项目里全是 4 空格缩进，AI 写了一个 2 空格缩进的新文件。
+## 3. 依赖遵循项目策略
 
----
+新增依赖前确认确有价值、许可证/维护/安全可接受，并核对当前官方接口。
 
-## 2. 类型安全是底线
+- 保持项目现有 manifest 语义（精确版本或合法 range）和 lockfile 策略。
+- 不为“最新”盲目升级无关依赖，也不手工伪造 lockfile。
+- 用户要求升级或安全修复时，选择与运行时/框架兼容的当前稳定版本，并运行相应验证。
+- 新依赖、运行时要求和回滚影响记录到 design/proposal；长期 setup 变化同步系统文档。
 
-**做什么**：
+## 4. 注释解释原因
 
-- **JavaScript / TypeScript**：用 TypeScript，开 `strict`。如果项目纯 JS，至少加 JSDoc + `@ts-check`。
-- **Python**：所有公开函数加 type hints；项目级别开 `pyright` 或 `mypy`。
-- **Ruby**：能加 RBS / Sorbet 就加。
-- **PHP**：开 `declare(strict_types=1);`，参数和返回值都标类型。
-- **Go / Rust / Java / Kotlin / Swift / C# / TypeScript**：本身静态语言，不要绕过类型系统（不要乱用 `interface{}`、`unknown`、`Object`、`any`）。
+注释语言、风格和 docstring 约定跟随项目。没有约定时使用当前任务/仓库主要语言，保持简洁。
 
-**为什么**：90% 的运行时 bug 是类型不一致引起的。脚本语言不强制不代表可以省。
+只注释反直觉原因、隐含约束、兼容性/安全考虑和无法由类型表达的事实。不要复述代码。长期设计理由属于 ADR/design，不塞进大段源码注释。
 
-**反例**：
+## 5. 维持可理解的结构
 
-```ts
-// ❌ 用 any 偷懒
-function handle(payload: any) {
-  return payload.user.name.toUpperCase();
-}
+文件大小不是固定质量门槛。出现以下信号时才拆分：多重职责、频繁冲突、难以独立测试/理解、条件嵌套失控、重复逻辑或已有项目阈值被违反。
 
-// ✅ 明确建模
-type Payload = { user: { name: string } };
-function handle(payload: Payload) {
-  return payload.user.name.toUpperCase();
-}
+拆分应服务当前改动并保持行为，不因达到任意行数就制造抽象。生成文件、迁移、schema、声明式配置等按项目惯例处理。
+
+## 6. 同步 durable truth
+
+实现发现事实变化时更新对应所有者：
+
+- 意图、范围、AC、风险 -> proposal；
+- 可观察行为 -> delta spec；
+- 技术权衡、迁移/回滚 -> design 或长期 ADR；
+- 顺序、依赖、恢复点 -> tasks；
+- 实际验证 -> verification；
+- 当前系统/命令/运维事实 -> system docs。
+
+只记录能帮助验收、恢复或未来维护的事实；不要求每个 task 填“遇到的问题/实现逻辑/关键决策”空模板。与 docs-architect 的同步见 [docs-architect-integration.md](docs-architect-integration.md)。
+
+## 7. 验证是证据，不是测试配额
+
+每个验收主张都要有足够证据，但方法按风险与回归价值选择。运行 impacted checks，记录真实结果，避免在 task、里程碑、review 和 close 四次重复同一套验证。完整策略见 [verification.md](verification.md)。
+
+## 8. UI 服从现有体验与用户需求
+
+先检查现有 design system、组件和相似流程。新体验或设计未知才调研/确认；局部修复直接沿用项目模式。响应式、状态完整性与 a11y 是可观察验收，不是最后装饰。见 [ui-design.md](ui-design.md)。
+
+## 9. 保持动量，尊重授权
+
+一个 task 完成后继续选择 ready task，不因固定阶段或内部检查反复请求确认。只有 workflow 中定义的真实歧义、外部决策、破坏性操作、持续失败或外部不可用才暂停。
+
+持续执行不扩大授权：发布、push、创建外部资源、删除数据或覆盖用户文件仍需用户请求或项目明确许可。
+
+## 单个实现单元的最小循环
+
+```text
+select ready task
+  -> mark in_progress
+  -> implement coherent change
+  -> impacted verification + diff self-review
+  -> update only changed truth and material recovery notes
+  -> mark completed when evidence supports it
+  -> commit according to project/user Git policy
+  -> select next ready task
 ```
 
----
-
-## 3. 依赖锁最新固定版本
-
-**做什么**：
-
-| 包管理器 | 锁版本方式 | 例 |
-|-----------|------------|-----|
-| npm / pnpm / yarn | 精确版本号、不要 `^`/`~` | `"react": "19.0.0"` |
-| pip / uv | `==` | `fastapi==0.115.5` |
-| gem | `=` | `gem "rails", "= 7.2.2"` |
-| go mod | `go.mod` 自己锁好 | `require example.com/x v1.2.3` |
-| cargo (**例外**) | 大版本即可 | `serde = "1"` 而非 `serde = "1.0.215"` |
-
-**怎么查最新版**：
-
-- npm：`npm view <pkg> version`
-- pip：`pip index versions <pkg>` 或 PyPI 网站
-- gem：`gem search -r <name>`
-- 用 context7 MCP 查包文档时通常会带最新版本
-- WebFetch 包的官方页面
-
-**为什么**：
-
-- 锁死版本 = 重复构建可复现
-- 拿最新稳定版 = 避免一上线就要补丁
-- Rust 用大版本是因为 cargo 默认走 `Cargo.lock`，开发态保留语义化升级空间更符合社区习惯
-
-**反例**：
-
-```json
-{
-  "dependencies": {
-    "react": "^17.0.2"  // ❌ 版本不固定 + 已经过时
-  }
-}
-```
-
----
-
-## 4. 注释跟项目主语言走
-
-**做什么**：
-
-1. 进项目先扫几个核心源文件的注释（`grep -r "^//\|^#\|^/\*"`），看占多数的语言。
-2. 占多数的语言就是主语言。多数是中文写中文，多数是英文写英文。
-3. 项目里基本没注释 → 默认中文。
-
-**注释要写什么**：
-
-- ✅ 为什么这样设计（决策理由）
-- ✅ 隐含的约束（"上游保证 X 非空"）
-- ✅ 反直觉的代码（"这里看起来该用 reduce，但因为 Y 用了 for"）
-- ✅ TODO / FIXME 加上原因和上下文
-- ❌ 重复变量名做的事（"// 把 user 设成 null" 看代码就知道）
-- ❌ 翻译代码逻辑（"// 循环遍历 list"）
-
-**反例**：
-
-```ts
-// ❌ 复读机注释
-// 把 list 中每一项乘以 2
-const doubled = list.map(x => x * 2);
-
-// ✅ 解释为什么
-// 库返回的是 cents，UI 要展示成 dollars，所以乘 100 倒数
-const dollars = cents.map(c => c / 100);
-```
-
----
-
-## 5. 超长文件里程碑后拆分
-
-**做什么**：
-
-- 每完成一个里程碑（一组关联任务全部 ✅）后，扫一遍源码：
-  ```
-  find src -type f \( -name '*.ts' -o -name '*.py' -o -name '*.go' -o ... \) | xargs wc -l | sort -nr | head
-  ```
-- 任何 > 400 行的源码文件，分析它的内部结构：
-  - 是不是在做多件事？按职责拆。
-  - 是不是有可独立的纯函数？提到 utils。
-  - 是不是有大块字面量 / 配置？提到独立 data 文件。
-- 拆完后跑一遍测试和 lint 确保无回归。
-
-**豁免**：
-
-- DB migration（保持每个迁移一个文件，不要硬拆）
-- 原始 SQL（按业务整体看更易读）
-- 日志输出（就该平铺）
-- 生成式文档 / 自动生成的代码 / 锁文件
-
-**为什么**：长文件 PR 难审，重构风险高，新人理解慢。但是也不要**为了拆而拆** —— 强行拆出 50 个 30 行小文件反而更难追踪。400 行是一个经验值，不是硬阈值。
-
----
-
-## 6. 文档实时更新
-
-**做什么**：开发过程中只要碰到这些情况，**立刻** 回头改 `openspec/changes/<id>/` 下对应的 artifact（`proposal.md` / `spec.md` / `design.md`）或 `tasks.md`：
-
-- 实现方式跟原计划不一样（用户拍板的或自己拍板的都算）→ 改 design 或 spec
-- 发现需求里漏了一条（现在加上而不是憋到最后）→ 加进 spec 的 Requirement/Scenario，并补对应任务
-- 任务比预想的复杂，需要拆成子任务 / 比预想简单可合并 → 改 tasks
-- 出现新依赖（包、环境变量、外部服务）→ 记进 design / proposal 的 Impact
-
-文档 commit 跟代码 commit 放一起（见 `git-flow.md`）。spec 级行为变化记得用 ADDED/MODIFIED 维护 delta。
-
-**反例**：开发到一半发现要依赖一个 OAuth provider，但 proposal 的 Impact / design 里完全没提；最后审核时用户才发现。
-
----
-
-## 7. UI 必先调研设计
-
-详见 `ui-design.md`。摘要：先调研（参考竞品、Dribbble、Mobbin、当前环境里可用的前端设计类 skill），出一个简单方案给用户确认，再开写。
-
----
-
-## 8. 测试是一等公民
-
-详见 `verification.md`。**spec 里每条 `#### Scenario` 都是一个测试用例**——开发期就把它落成自动化测试，别等最后补。
-
-- 测试写进 `tasks.md`（独立测试任务，或每个功能任务的验收条目）。
-- 跟项目已有的测试框架 / 目录约定 / mock 方式走，不另起炉灶；项目没测试基建时，引不引入属"外部决策"，可停下问用户。
-- **每完成一个里程碑跑增量验证**：跑测试 + lint + type check + 真跑 app（可用 `/verify` / `/run`），别把验证压到 Phase 4。
-
-> 每任务的"五项自检 + commit"见单任务循环、`code-review.md`、`git-flow.md`。
-
----
-
-## 9. 不要中途停下来等指令
-
-**做什么**：
-
-- Phase 0、1、2 进入下一阶段前要用户确认——但**闸门按级缩放**：Lite 级把这几道闸合并成一次确认，别为难小任务（见 SKILL.md 分级表）。
-- Phase 3 内部，**任务列表已经被用户确认过**，按列表一个接一个做下去，不要每完成一个任务就停下问 "继续吗？"。
-- Phase 4 内部，并行审核按预定波数跑完，不停。
-- Phase 5 归档完成后，向用户汇报全部产出。
-
-**只能停的四种情况**：
-
-1. **真正的需求模糊**：需求文档里某条规定不清楚，怎么实现都行的那种，必须用户拍板。
-2. **外部决策**：服务选型（"用 Stripe 还是 Paddle？"）、第三方资源（API key、OAuth client 等）。
-3. **破坏性操作授权**：删数据库、 force push、覆盖用户文件等。
-4. **真修不动**：测试一直挂、编译报错你尝试 3 次以上还是不行，把现状报给用户。
-
-**反例**：完成一个 "添加登录页" 子任务后停下问 "要继续做注册页吗？"——任务列表里明明已经有注册页任务，按列表继续就行。
+这是可恢复循环，不要求一个 task 必须等于一个测试、一个 reviewer 或一个 commit。

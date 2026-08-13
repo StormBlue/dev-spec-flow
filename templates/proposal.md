@@ -1,58 +1,69 @@
-# Proposal — <Change 标题>
+<!-- docs-architect-meta {"schema_version":1,"id":"REQ-YYYY-NNN","type":"requirement","title":"TODO: concise observable outcome","status":"intake","owners":[],"origin":null,"approval":null,"sources":[],"update_when":["The accepted outcome, scope, risk, lifecycle state, or documentation impact changes"],"relations":[],"dependencies":[],"acceptance":[{"id":"AC-1","text":"TODO: observable acceptance outcome","status":"pending","evidence":[]}],"evidence":[],"affected_code":[],"affected_docs":[],"open_questions":[],"documentation_disposition":"pending","no_doc_change_scope":[],"no_doc_change_reason":null,"slug":"verb-led-change-slug","complexity":"small","risk":{"level":"low","drivers":[]},"retention":"summary","ephemeral_artifacts":[],"created_at":"<ISO-8601 timestamp with timezone>","updated_at":"<ISO-8601 timestamp with timezone>","status_changed_at":"<ISO-8601 timestamp with timezone>","completed_at":null,"archived_at":null,"status_history":[{"status":"intake","at":"<ISO-8601 timestamp with timezone>","reason":"Requirement recorded; approval not yet established"}]} -->
 
-> 复制到 `openspec/changes/<change-id>/proposal.md`，替换所有 `<...>`。
-> 保持精炼（1-2 页），聚焦 **why 与 what**，实现细节留给 `design.md`。
-> 写法说明见 [`references/openspec-model.md`](../references/openspec-model.md) 第三节。
+# REQ-YYYY-NNN: TODO: Concise Observable Outcome
 
-**Change ID**: `<add-team-todo>`
-**级别**: Lite / Standard / Full
-**状态**: 草稿 / 评审中 / 已确认 / 实施中 / 已交付 / 已归档
-**日期**: <YYYY-MM-DD>
-
----
+Use this file as the requirement and lifecycle source of truth for one change. Keep the
+metadata and prose aligned. Record approval only from a resolvable authority source, append
+material status transitions to `status_history`, and never infer timestamps from file mtime.
+An explicit imperative user request can authorize exactly the scope it states; when no durable
+external authority exists, capture that request faithfully in `request.md` and use it as a
+`request-record`. Analysis or proposal requests do not authorize implementation or Git/release
+actions.
 
 ## Why
 
-<要解决的问题 / 机会，1-2 句。为什么是现在？谁受益？>
+State the current problem or opportunity, who is affected, and why the change matters now.
+Use `unknown` for facts that still require evidence.
 
-## What Changes
+## Outcome
 
-<要做的改动清单，具体到能让人判断范围。破坏性改动标 **BREAKING**。>
+Describe the user- or operator-observable result. Keep implementation choices in `design.md`.
 
-- <改动 1>
-- <改动 2>
-- **BREAKING** <破坏性改动，如有>
+## Scope
 
-## Capabilities
+### In scope
 
-> 这一节是 proposal 与 spec 阶段的契约：这里列几个能力，spec 阶段就产出对应几个 `specs/<name>/spec.md`。先查 `openspec/specs/` 已有的名字。
+- TODO
 
-### New Capabilities（新建）
-- `<kebab-name>`: <这个能力覆盖什么>
+### Out of scope
 
-### Modified Capabilities（改已有 requirement，仅 spec 级行为变化时列）
-- `<existing-name>`: <哪条 requirement 怎么变>
+- TODO
 
-## 范围
+## Capability Changes
 
-**In scope（本次要做）**
-- ✅ <...>
+Each row must correspond to one delta file under `specs/<domain>/spec.md`.
 
-**Out of scope（本次不做，写出来避免误解）**
-- ❌ <...>
+| Domain | Change | Summary |
+|---|---|---|
+| `<domain>` | added / modified / removed / renamed | TODO |
 
-## 成功标准
+## Acceptance Criteria
 
-<怎么算做完了？尽量可度量。>
+Keep IDs stable and keep this list aligned with metadata `acceptance`. A Scenario may support
+an acceptance item, but it does not mechanically require a new automated test.
 
-- <用户能完成 X 主流程，全程不报错>
-- <p95 < 200ms / 崩溃率 < 0.1% / ...>
+- [ ] `AC-1` - TODO: state an observable result
 
 ## Impact
 
-<影响的代码 / API / 依赖 / 数据 / 外部系统。新增依赖在此点名，详细版本进 design。>
+- Affected code or configuration: unknown
+- External contracts or dependencies: none known
+- Data or migration impact: none known
+- Rollback constraints: none known
 
-## 开放问题 / 待用户拍板
+## Documentation Disposition
 
-- [ ] <选 A 还是 B？（影响什么）>
-- [ ] <需要哪个第三方资源 / 密钥？>
+Keep `documentation_disposition` as `pending` until current product or system documentation is
+synchronized. For `no_change_required`, leave `affected_docs` empty, record the reviewed scope
+in `no_doc_change_scope`, give a concrete reason, and link captured review evidence.
+
+## Open Questions
+
+- None recorded.
+
+## History
+
+Append material scope, acceptance, risk, approval, or status changes. Do not silently rewrite
+approved criteria.
+
+- `<timestamp>` - Requirement recorded.

@@ -1,86 +1,65 @@
-# 上下文存活、断点续做、与原生能力的关系
+# 上下文、断点续做与 Agent 协作
 
-长流程（尤其 Full 级几十个任务 + 多波审核）会撞上一个硬约束：**单个上下文窗口装不下整个工程**。会话会被压缩（compaction），早期细节会丢，线索会断。这份文档讲怎么让工作**抗压缩、可续做、不淹主线程**。
+长任务依赖磁盘上的稳定状态，而不是聊天记忆。目标是用最少的持久信息恢复正确下一步，并让临时 agent 输出在 Close 时被压缩。
 
----
+## 真相层级
 
-## 一、落盘的状态是唯一可靠的真相源
+1. proposal 的机器可读 metadata：requirement 身份、生命周期、时间、风险和验收。
+2. `tasks.md`：task ID、依赖、优先级、状态、恢复点与 outcome。
+3. delta spec/design：行为变化与技术决策。
+4. `verification.md`：实际证据与 finding disposition。
+5. Git status/diff/log：工作树和提交事实。
+6. 会话 Todo 或聊天总结：仅当前执行提示，不能覆盖上面真相。
 
-不要把"做到哪了"只记在脑子（上下文）里——压缩一来就没了。**真相落在磁盘上**：
+emoji、派生进度表和文件顺序不是机器状态。若它们与 metadata/task 字段冲突，以结构化字段和实际 Git 状态为准并修正文档。
 
-- **`tasks.md` 的状态 emoji** = 进度真相。哪些 ✅、哪个 🚧、哪些 ⏳。
-- **`tasks.md` 的备注块** = 决策与踩坑真相（🐛 问题 / 🔧 实现 / 🎯 决策）。
-- **`openspec/changes/<id>/`** = 这次改动的全部上下文（proposal/spec/design）。
-- **`openspec/specs/`** = 系统现状真相。
+## 断点续做协议
 
-**所以 tasks.md 的备注块不是形式主义**——它是压缩后让你（或接手的人）快速重建上下文的存档。开发期每个任务都认真填。
-
----
-
-## 二、断点续做协议
-
-会话中断、重启、或上下文压缩后，**不要凭记忆继续**。按这个协议重建：
-
-```
-1. 读 openspec/changes/<id>/tasks.md
-2. 找到第一个非 ✅ 的任务（🚧 或 ⏳）
-3. 如果有 🚧（上次做到一半）：读它的备注块 + git status/diff，搞清楚做到哪了
-4. 读它依赖的 proposal/spec/design 相关段落，重建需求上下文
-5. 从这个任务继续单任务循环
+```text
+1. 定位 active REQ/change，读 proposal metadata 与目标
+2. 读 tasks，若有 in_progress task 优先恢复
+3. 检查 git status/diff，核对 task recovery note 与实际工作树
+4. 若无 in_progress，计算 depends_on 全完成的 ready tasks
+5. 选择最高 priority；同优先级按稳定 task ID
+6. 只读该 task 关联的 AC/BR/SC、design 段落和证据缺口
+7. 继续 apply 循环
 ```
 
-一句话：**tasks.md 在哪，就从哪接着走。** 这也是为什么状态要每步实时更新——它是续做的入口。
+如果 change 处于 close 中断，按 [close-and-retention.md](close-and-retention.md) 的幂等恢复协议处理，不从普通 task 重新开始。
 
----
+## 只记录 material 状态
 
-## 三、上下文卫生
+task 的 progress/recovery 记录：
 
-- **实现前清场**：规划（Phase 0-2）和实现（Phase 3）之间，如果上下文已经很满，倾向于**清理上下文再开始实现**——实现只需要 tasks.md + 相关 spec/design，不需要调研期的一大堆探索过程。（OpenSpec 官方建议：实现前清空上下文、全程保持上下文卫生。）
-- **别重复读**：已经读过且没变的文件不要反复读。
-- **大输出丢给子 agent**：见下。
+- 当前完成到哪个可检查边界；
+- 未提交 diff 的意图；
+- 已运行命令和失败原因（详细证据可链接 verification）；
+- 下一步和外部阻塞条件；
+- 会改变后续实现的重要发现。
 
----
+不要求每个完成 task 填相同的“问题/实现/决策”三栏。无新事实时只更新 status/outcome/commit mapping。
 
-## 四、用子 agent 省主上下文
+## 使用子 Agent
 
-子 agent 有独立上下文、**只回传结论**。凡是"读一大堆、结论就一点"的活，丢给子 agent，主线程只拿结论：
+在当前环境实际提供隔离 agent 且并行能提升速度/质量时，用于：
 
-| 场景 | 派给 | 为什么 |
-|------|------|--------|
-| Phase 1 调研（扫大量文件/搜索/读文档） | Explore / general-purpose | 探索过程几十个文件，主线程只需要"技术决策摘要" |
-| Phase 4 审核（读全部改动 + spec） | Explore（只读） | 每个视角读很多，主线程只需要 findings；且**隔离上下文防自审偏见**（见 [`review-agents.md`](review-agents.md)） |
-| 大范围修复 | general-purpose | 把"修复清单+文件"丢出去改，主 agent 只编排 + 复核 |
+- 针对独立问题的代码/文档探索；
+- 风险触发的只读专项 review；
+- 相互不写同一文件的实现子任务；
+- 长输出可压缩为短结论的调研。
 
-注意：子 agent **不能再派子 agent**，且看不到主对话历史——给它的 prompt 要自带它需要的全部上下文（指明读哪些文件）。
+给 agent 明确 scope、可读文件、允许的命令/写权限、输出格式与不应触碰的用户改动。共享工作树时避免多个 writer 编辑同一文件；reviewer 默认只读。
 
----
+不要断言某平台的 agent 一定能/不能再委派、并行或运行工具。运行时检测见 [platforms.md](platforms.md)。
 
-## 五、与 Claude Code 原生能力的分工
+## 上下文卫生
 
-本 skill 不重造原生能力，而是编排它们。
+- 用渐进披露：先读 proposal/tasks，再读当前关联段落和源码。
+- 子 agent 只回高信号结论；原始 prompt/output 默认临时。
+- 搜索/调研结论吸收到 proposal/design/ADR 后，不重复携带原始摘录。
+- review 读取 change、diff、主 specs 和项目规则，不继承作者的辩护性叙述。
+- close 前将未解决事项提升到稳定 artifact，再删除临时材料。
 
-### tasks.md（持久）vs 原生 TodoWrite（即时）
+## 与原生计划/Todo 的分工
 
-| | `tasks.md`（本 skill） | 原生 TodoWrite |
-|---|---|---|
-| 寿命 | 落盘，**跨会话、抗压缩** | 本次会话内，临时 |
-| 粒度 | 里程碑→任务→子任务 + 依赖 + 备注 + 需求追溯 | 扁平的当下待办 |
-| 角色 | **进度与决策的真相源** | 本次会话的执行节奏提示 |
-
-**分工**：`tasks.md` 为准（续做、审计、归档都靠它）。需要的话，可以用 TodoWrite 把"当前里程碑的几个任务"镜像成会话内待办来驱动节奏，但**状态变更最终要落到 tasks.md**。别让两者打架。
-
-### Plan Mode 当审批闸
-
-Phase 1/2 的"给用户过一遍再继续"可以借 **Plan Mode**：只读探索、形成方案、用户批准后再退出执行。审批闸天然落地，不用自己造确认机制。
-
-### 内置 review / 验证 skill
-
-`/code-review`、`/security-review`、`/simplify`、`/verify`、`/run`——在 Phase 4 与里程碑验证里直接编排调用（见 [`review-agents.md`](review-agents.md)、[`verification.md`](verification.md)），不要自己重写一套审查逻辑。
-
----
-
-## 六、Codex / 其它环境
-
-- 无子 agent：调研与审核在主上下文里做，更要勤清场、勤写 tasks.md 备注块。
-- 无 Plan Mode：审批闸用普通"我提个方案，等你确认"的对话完成。
-- `tasks.md` 断点续做协议**与平台无关**，照样适用。
+平台 Todo/plan 可以镜像当前几个动作，但 `tasks.md` 才是跨会话执行计划。只在一个地方维护持久状态；计划工具更新不能代替 change artifact 更新。

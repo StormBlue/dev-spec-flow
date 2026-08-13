@@ -1,0 +1,22 @@
+{
+  "adapters": {
+    "codex": [
+      "AGENTS.md"
+    ]
+  },
+  "docs_roots": [
+    "SKILL.md",
+    "README.md",
+    "references",
+    "openspec"
+  ],
+  "exclude": [
+    ".git/**",
+    ".venv/**",
+    "__pycache__/**",
+    "build/**",
+    "dist/**"
+  ],
+  "generated_dir": "openspec/generated",
+  "schema_version": 1
+}
