@@ -528,6 +528,19 @@ def revision_capture_resolves(path: Path, root: Path, change: Change) -> bool:
         # prove that scoped files have not drifted.
         if payload.get("worktree_state") != "scoped-dirty":
             return False
+        # While the repository is still at the capture's base commit, ensure
+        # that no additional path entered the declared scope after capture.
+        # Once Close creates a later commit, git_changed_paths() deliberately
+        # returns None and the immutable base plus recorded hashes remain the
+        # applicable anchor.
+        current_changed = git_changed_paths(root, base_commit)
+        if current_changed is not None:
+            current_scoped = sorted(
+                path for path in current_changed
+                if any(path_matches_scope(path, pattern) for pattern in scope)
+            )
+            if current_scoped != changed_paths:
+                return False
     except (FlowError, OSError, UnicodeError, json.JSONDecodeError, ValueError):
         return False
     return True
