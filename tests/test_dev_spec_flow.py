@@ -486,6 +486,26 @@ class VerifyAndCloseTests(FlowTestCase):
              mock.patch.object(flow, "git_commit_exists", return_value=True):
             self.assertFalse(flow.revision_resolves(value, self.root, refreshed))
 
+    def test_revision_capture_rejects_malformed_path_types(self) -> None:
+        change = self.ready_change()
+        capture = change.path / "evidence/revision-capture.json"
+        with mock.patch.object(flow, "git_head_oid", return_value="a" * 40), \
+             mock.patch.object(flow, "git_changed_paths", return_value=["src/export.py"]), \
+             mock.patch.object(flow, "git_path_exists_at", return_value=False), \
+             mock.patch.object(flow, "git_commit_exists", return_value=True):
+            payload = flow.revision_capture_payload(
+                self.root, change, capture.relative_to(self.root).as_posix()
+            )
+        payload["changed_paths"] = ["src/export.py", None]
+        capture.write_text(json.dumps(payload, sort_keys=True) + "\n", encoding="utf-8")
+        refreshed = flow.find_change(self.root, "add-export", active_only=True)
+        value = f"sha256:{flow.sha256_file(capture)}@{capture.relative_to(self.root).as_posix()}"
+        with mock.patch.object(flow, "git_head_oid", return_value="a" * 40), \
+             mock.patch.object(flow, "git_changed_paths", return_value=["src/export.py"]), \
+             mock.patch.object(flow, "git_path_exists_at", return_value=False), \
+             mock.patch.object(flow, "git_commit_exists", return_value=True):
+            self.assertFalse(flow.revision_resolves(value, self.root, refreshed))
+
     def test_close_dry_run_is_non_mutating(self) -> None:
         change = self.ready_change()
         before = {path: path.read_bytes() for path in change.path.rglob("*") if path.is_file()}

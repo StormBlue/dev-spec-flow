@@ -541,7 +541,7 @@ def revision_capture_resolves(path: Path, root: Path, change: Change) -> bool:
             )
             if current_scoped != changed_paths:
                 return False
-    except (FlowError, OSError, UnicodeError, json.JSONDecodeError, ValueError):
+    except (FlowError, OSError, UnicodeError, json.JSONDecodeError, TypeError, ValueError):
         return False
     return True
 
