@@ -14,6 +14,19 @@
       "type": "evidence"
     },
     {
+      "id": "EVID-REQ-2026-002",
+      "path": "openspec/changes/archive/2026-08-14-REQ-2026-002-fix-close-verification-prose/verification.md",
+      "relations": [
+        {
+          "target": "REQ-2026-002",
+          "type": "validates"
+        }
+      ],
+      "status": "completed",
+      "title": "Verification for Synchronize Close completion prose",
+      "type": "evidence"
+    },
+    {
       "id": "PLAN-REQ-2026-001",
       "path": "openspec/changes/archive/2026-08-14-REQ-2026-001-upgrade-risk-driven-workflow/tasks.md",
       "relations": [
@@ -27,11 +40,37 @@
       "type": "exec-plan"
     },
     {
+      "id": "PLAN-REQ-2026-002",
+      "path": "openspec/changes/archive/2026-08-14-REQ-2026-002-fix-close-verification-prose/tasks.md",
+      "relations": [
+        {
+          "target": "REQ-2026-002",
+          "type": "implements"
+        }
+      ],
+      "status": "completed",
+      "title": "Implement Synchronize Close completion prose",
+      "type": "exec-plan"
+    },
+    {
       "id": "REQ-2026-001",
       "path": "openspec/changes/archive/2026-08-14-REQ-2026-001-upgrade-risk-driven-workflow/proposal.md",
       "relations": [],
       "status": "done",
       "title": "Upgrade dev-spec-flow to a risk-driven lifecycle",
+      "type": "requirement"
+    },
+    {
+      "id": "REQ-2026-002",
+      "path": "openspec/changes/archive/2026-08-14-REQ-2026-002-fix-close-verification-prose/proposal.md",
+      "relations": [
+        {
+          "target": "REQ-2026-001",
+          "type": "related_to"
+        }
+      ],
+      "status": "done",
+      "title": "Synchronize Close completion prose",
       "type": "requirement"
     },
     {

@@ -5,8 +5,11 @@
 | ID | Type | Status | Title | Path |
 |---|---|---|---|---|
 | `EVID-REQ-2026-001` | evidence | completed | Verification for REQ-2026-001 | [openspec/changes/archive/2026-08-14-REQ-2026-001-upgrade-risk-driven-workflow/verification.md](../changes/archive/2026-08-14-REQ-2026-001-upgrade-risk-driven-workflow/verification.md) |
+| `EVID-REQ-2026-002` | evidence | completed | Verification for Synchronize Close completion prose | [openspec/changes/archive/2026-08-14-REQ-2026-002-fix-close-verification-prose/verification.md](../changes/archive/2026-08-14-REQ-2026-002-fix-close-verification-prose/verification.md) |
 | `PLAN-REQ-2026-001` | exec-plan | completed | Implement the risk-driven dev-spec-flow upgrade | [openspec/changes/archive/2026-08-14-REQ-2026-001-upgrade-risk-driven-workflow/tasks.md](../changes/archive/2026-08-14-REQ-2026-001-upgrade-risk-driven-workflow/tasks.md) |
+| `PLAN-REQ-2026-002` | exec-plan | completed | Implement Synchronize Close completion prose | [openspec/changes/archive/2026-08-14-REQ-2026-002-fix-close-verification-prose/tasks.md](../changes/archive/2026-08-14-REQ-2026-002-fix-close-verification-prose/tasks.md) |
 | `REQ-2026-001` | requirement | done | Upgrade dev-spec-flow to a risk-driven lifecycle | [openspec/changes/archive/2026-08-14-REQ-2026-001-upgrade-risk-driven-workflow/proposal.md](../changes/archive/2026-08-14-REQ-2026-001-upgrade-risk-driven-workflow/proposal.md) |
+| `REQ-2026-002` | requirement | done | Synchronize Close completion prose | [openspec/changes/archive/2026-08-14-REQ-2026-002-fix-close-verification-prose/proposal.md](../changes/archive/2026-08-14-REQ-2026-002-fix-close-verification-prose/proposal.md) |
 | `SPEC-workflow` | product-spec | active | Workflow product specification | [openspec/specs/workflow/spec.md](../specs/workflow/spec.md) |
 | `SYS-dev-spec-flow` | system-doc | active | Dev Spec Flow canonical workflow | [SKILL.md](../../SKILL.md) |
 | `SYS-dev-spec-flow-guide` | system-doc | active | dev-spec-flow user and maintainer guide | [README.md](../../README.md) |
@@ -16,6 +19,9 @@
 | Source | Relationship | Target |
 |---|---|---|
 | `EVID-REQ-2026-001` | `validates` | `REQ-2026-001` |
+| `EVID-REQ-2026-002` | `validates` | `REQ-2026-002` |
 | `PLAN-REQ-2026-001` | `implements` | `REQ-2026-001` |
+| `PLAN-REQ-2026-002` | `implements` | `REQ-2026-002` |
+| `REQ-2026-002` | `related_to` | `REQ-2026-001` |
 | `SYS-dev-spec-flow` | `documents` | `REQ-2026-001` |
 | `SYS-dev-spec-flow-guide` | `documents` | `REQ-2026-001` |

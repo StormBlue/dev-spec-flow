@@ -1,0 +1,125 @@
+{
+  "affected_documents": [
+    {
+      "id": "EVID-REQ-2026-001",
+      "path": "openspec/changes/archive/2026-08-14-REQ-2026-001-upgrade-risk-driven-workflow/verification.md",
+      "reasons": [
+        "source match: SKILL.md",
+        "source match: references/close-and-retention.md",
+        "source match: references/docs-architect-integration.md",
+        "source match: scripts/dev_spec_flow.py",
+        "source match: templates/proposal.md",
+        "source match: templates/verification.md",
+        "source match: tests/test_dev_spec_flow.py"
+      ],
+      "status": "completed",
+      "title": "Verification for REQ-2026-001",
+      "type": "evidence"
+    },
+    {
+      "id": "EVID-REQ-2026-002",
+      "path": "openspec/changes/fix-close-verification-prose/verification.md",
+      "reasons": [
+        "source match: SKILL.md",
+        "source match: scripts/dev_spec_flow.py",
+        "source match: templates/proposal.md",
+        "source match: templates/verification.md"
+      ],
+      "status": "active",
+      "title": "Verification for Synchronize Close completion prose",
+      "type": "evidence"
+    },
+    {
+      "id": "PLAN-REQ-2026-001",
+      "path": "openspec/changes/archive/2026-08-14-REQ-2026-001-upgrade-risk-driven-workflow/tasks.md",
+      "reasons": [
+        "source match: SKILL.md",
+        "source match: references/close-and-retention.md",
+        "source match: references/docs-architect-integration.md"
+      ],
+      "status": "completed",
+      "title": "Implement the risk-driven dev-spec-flow upgrade",
+      "type": "exec-plan"
+    },
+    {
+      "id": "PLAN-REQ-2026-002",
+      "path": "openspec/changes/fix-close-verification-prose/tasks.md",
+      "reasons": [
+        "source match: SKILL.md"
+      ],
+      "status": "active",
+      "title": "Implement Synchronize Close completion prose",
+      "type": "exec-plan"
+    },
+    {
+      "id": "REQ-2026-001",
+      "path": "openspec/changes/archive/2026-08-14-REQ-2026-001-upgrade-risk-driven-workflow/proposal.md",
+      "reasons": [
+        "source match: SKILL.md",
+        "source match: references/close-and-retention.md",
+        "source match: references/docs-architect-integration.md",
+        "source match: scripts/dev_spec_flow.py",
+        "source match: templates/proposal.md",
+        "source match: templates/verification.md",
+        "source match: tests/test_dev_spec_flow.py"
+      ],
+      "status": "done",
+      "title": "Upgrade dev-spec-flow to a risk-driven lifecycle",
+      "type": "requirement"
+    },
+    {
+      "id": "REQ-2026-002",
+      "path": "openspec/changes/fix-close-verification-prose/proposal.md",
+      "reasons": [
+        "source match: SKILL.md",
+        "source match: references/close-and-retention.md",
+        "source match: scripts/dev_spec_flow.py",
+        "source match: templates/proposal.md",
+        "source match: templates/verification.md",
+        "source match: tests/test_dev_spec_flow.py"
+      ],
+      "status": "in_progress",
+      "title": "Synchronize Close completion prose",
+      "type": "requirement"
+    },
+    {
+      "id": "SYS-dev-spec-flow",
+      "path": "SKILL.md",
+      "reasons": [
+        "source match: SKILL.md",
+        "source match: references/close-and-retention.md",
+        "source match: references/docs-architect-integration.md",
+        "source match: scripts/dev_spec_flow.py",
+        "source match: templates/proposal.md",
+        "source match: templates/verification.md"
+      ],
+      "status": "active",
+      "title": "Dev Spec Flow canonical workflow",
+      "type": "system-doc"
+    },
+    {
+      "id": "SYS-dev-spec-flow-guide",
+      "path": "README.md",
+      "reasons": [
+        "source match: SKILL.md",
+        "source match: scripts/dev_spec_flow.py"
+      ],
+      "status": "active",
+      "title": "dev-spec-flow user and maintainer guide",
+      "type": "system-doc"
+    }
+  ],
+  "changed_files": [
+    "SKILL.md",
+    "references/close-and-retention.md",
+    "references/docs-architect-integration.md",
+    "scripts/dev_spec_flow.py",
+    "templates/proposal.md",
+    "templates/verification.md",
+    "tests/test_dev_spec_flow.py"
+  ],
+  "findings": [],
+  "ok": true,
+  "semantic_review_recommended": false,
+  "unmatched_changed_files": []
+}
