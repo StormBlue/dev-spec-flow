@@ -86,5 +86,8 @@ successor issue or requirement. Do not use free-text "fix later" as a close disp
 
 - Verified revision: TODO
 - Verification completed at: TODO
-- Close dry-run: not run
-- Close result and archive location: pending
+- Close planning: not run
+- Close result: pending
+- Close completed at: TODO
+- Archive location: pending
+- Post-close archive validation: not run

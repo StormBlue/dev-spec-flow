@@ -23,6 +23,7 @@
 3. **merge delta**：按 BR/SC 稳定 ID 应用 ADDED/MODIFIED/REMOVED/RENAMED 到 `openspec/specs/`，再验证无重复、悬空或冲突。
 4. **同步长期知识**：运行 docs impact；更新 product/system docs，提升跨 change 决策为 ADR，或记录有证据的 `no_change_required`。见 [docs-architect-integration.md](docs-architect-integration.md)。
 5. **压缩 change**：按 retention profile 提升、压缩或删除临时材料；生成最终 verification/completion 摘要。
+   Close 同时把 `verification.md` 中的生命周期摘要（文档处置、当前 spec、验证 revision、Close/归档时间与路径）同步为实际结果；不要留下模板的 pending/not-run 文案。
 6. **预校验**：运行项目必要门禁、链接/metadata 检查和 index preview。不要用结构检查代替行为证据。
 7. **完成生命周期**：写 `completed_at`，追加 status history 并将 requirement/plan/evidence 置为相应完成状态。
 8. **移动归档**：移到 `changes/archive/<YYYY-MM-DD>-<REQ-ID>-<slug>/`，写真实 `archived_at`，更新所有受影响引用。

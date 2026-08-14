@@ -119,7 +119,7 @@ Completion is not "implementation ended". Run close immediately when readiness i
 2. Merge delta clauses into current specs by stable behavior ID.
 3. Synchronize affected current docs and significant ADRs, or record evidence-backed no-change reasoning.
 4. Keep one verification/completion record; remove only explicitly registered temporary artifacts under the selected retention policy.
-5. Write completion and archive timestamps, move the change into chronological archive, and validate the result.
+5. Require an explicit `updated` or `no_change_required` documentation disposition, synchronize the human-readable completion fields, write completion and archive timestamps, move the change into chronological archive, and validate the result.
 
 Close must be dry-runnable, idempotent, and recoverable. Never claim success after a partial merge or failed documentation check. See [close-and-retention.md](references/close-and-retention.md).
 

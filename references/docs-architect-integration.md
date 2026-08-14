@@ -71,6 +71,10 @@ readiness
 
 `documentation_disposition: updated` 应由实际受影响且当前有效的 product/system doc 支持；若当前 docs-architect 版本只接受 system-doc，则按其真实 gate 执行并明确记录兼容限制，不用虚假文档改动绕过。`no_change_required` 必须有 reviewed scope、具体理由和捕获证据。
 
+即使未配置 docs-architect，standalone close 也必须显式选择 `updated` 或
+`no_change_required`；CLI 不会把 `pending` 或未知值推断为完成。standalone 的
+`no_change_required` 仍需记录审阅范围、具体理由和 change-local 证据。
+
 执行 change 的 agent 负责解析当前 docs-architect Skill 路径，运行 impact/check/index，并把捕获结果登记到 verification metadata 的 `documentation_checks`。dev-spec-flow CLI 只校验这些结果及 disposition 的结构门槛，不猜测另一个 Skill 的安装路径，也不擅自初始化 docs-architect。
 
 ## 责任边界

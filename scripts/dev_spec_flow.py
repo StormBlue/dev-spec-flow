@@ -53,6 +53,7 @@ REQUIRED_TIMES = ("created_at", "updated_at", "status_changed_at")
 COMPLEXITIES = {"small", "medium", "large"}
 RISK_LEVELS = {"low", "medium", "high", "critical"}
 RETENTIONS = {"minimal", "summary", "compliance"}
+DOCUMENTATION_DISPOSITIONS = {"pending", "updated", "no_change_required"}
 TASK_STATES = {"pending", "ready", "in_progress", "blocked", "completed", "cancelled"}
 FINAL_TASK_STATES = {"completed", "cancelled"}
 EVIDENCE_RESULTS = {"pending", "passed", "failed", "waived", "deferred"}
@@ -627,8 +628,142 @@ def replace_metadata(text: str, metadata: dict[str, Any]) -> str:
     return text[: match.start()] + metadata_comment(metadata) + text[match.end() :]
 
 
+def _line_without_newline(line: str) -> str:
+    return line.rstrip("\r\n")
+
+
+def _fence_flags(lines: Sequence[str]) -> list[bool]:
+    """Mark lines inside Markdown fenced code blocks.
+
+    Lifecycle bullets are machine-maintained prose, so code examples and nested
+    snippets must never be mistaken for fields.  A small CommonMark-compatible
+    fence tracker is sufficient here because only ````` `` and ``~~~`` fences
+    are relevant to the generated artifacts.
+    """
+    flags: list[bool] = []
+    fence: tuple[str, int] | None = None
+    marker_re = re.compile(r"^\s{0,3}(`{3,}|~{3,})")
+    for line in lines:
+        flags.append(fence is not None)
+        marker = marker_re.match(_line_without_newline(line))
+        if marker is None:
+            continue
+        token = marker.group(1)
+        if fence is None:
+            fence = (token[0], len(token))
+        elif token[0] == fence[0] and len(token) >= fence[1]:
+            fence = None
+    return flags
+
+
+def _top_level_section_bounds(lines: Sequence[str]) -> list[tuple[str, int, int]]:
+    """Return top-level ``##`` section ranges, excluding fenced examples."""
+    flags = _fence_flags(lines)
+    starts: list[tuple[str, int]] = []
+    for index, line in enumerate(lines):
+        if flags[index]:
+            continue
+        value = _line_without_newline(line)
+        if value.startswith("## ") and not value.startswith("### "):
+            starts.append((value[3:].strip(), index))
+    return [
+        (heading, start, starts[pos + 1][1] if pos + 1 < len(starts) else len(lines))
+        for pos, (heading, start) in enumerate(starts)
+    ]
+
+
+def _insert_section(
+    lines: list[str], heading: str, entries: Sequence[tuple[str, str]], newline: str,
+    before_heading: str | None = None,
+) -> list[str]:
+    """Insert a generated lifecycle section in canonical document order."""
+    bounds = _top_level_section_bounds(lines)
+    insertion = len(lines)
+    if before_heading is not None:
+        candidates = [start for value, start, _ in bounds if value == before_heading]
+        if candidates:
+            insertion = candidates[0]
+    prefix = lines[:insertion]
+    suffix = lines[insertion:]
+    if prefix and _line_without_newline(prefix[-1]).strip():
+        prefix.append(newline)
+    block = [f"## {heading}{newline}", newline]
+    block.extend(f"- {label}: {value}{newline}" for label, value in entries)
+    if suffix and _line_without_newline(suffix[0]).strip():
+        block.append(newline)
+    return prefix + block + suffix
+
+
+def _upsert_lifecycle_section(
+    lines: list[str],
+    heading: str,
+    entries: Sequence[tuple[str, str]],
+    newline: str,
+    *,
+    aliases: dict[str, Sequence[str]] | None = None,
+    legacy_rules: Sequence[tuple[re.Pattern[str], Sequence[tuple[str, str]]]] = (),
+    before_heading: str | None = None,
+) -> list[str]:
+    """Update only top-level lifecycle bullets and reject ambiguous structure."""
+    aliases = aliases or {}
+    bounds = _top_level_section_bounds(lines)
+    matches = [(start, end) for value, start, end in bounds if value == heading]
+    if len(matches) > 1:
+        raise FlowError(f"Markdown contains duplicate lifecycle sections: {heading}")
+    if not matches:
+        return _insert_section(lines, heading, entries, newline, before_heading)
+
+    start, end = matches[0]
+    section = list(lines[start + 1:end])
+    flags = _fence_flags(section)
+    expanded: list[str] = []
+    for index, line in enumerate(section):
+        value = _line_without_newline(line)
+        if not flags[index] and value.startswith("- "):
+            matched_rule = next((rule for rule in legacy_rules if rule[0].match(value)), None)
+            if matched_rule is not None:
+                replacements = matched_rule[1]
+                if replacements:
+                    expanded.extend(f"- {label}: {item}{newline}" for label, item in replacements)
+                continue
+        expanded.append(line)
+    section = expanded
+
+    # Re-scan after legacy expansion.  Duplicate fields are rejected rather
+    # than silently deleting human-authored content.
+    flags = _fence_flags(section)
+    for label, value in entries:
+        accepted_labels = {label, *aliases.get(label, ())}
+        field_indices = [
+            index for index, line in enumerate(section)
+            if not flags[index]
+            and _line_without_newline(line).startswith("- ")
+            and any(
+                re.match(rf"^- {re.escape(candidate)}:[ \t]*", _line_without_newline(line))
+                for candidate in accepted_labels
+            )
+        ]
+        if len(field_indices) > 1:
+            raise FlowError(f"Markdown contains duplicate lifecycle field: {label}")
+        replacement = f"- {label}: {value}{newline}"
+        if field_indices:
+            section[field_indices[0]] = replacement
+        else:
+            insert_at = len(section)
+            while insert_at > 0 and not _line_without_newline(section[insert_at - 1]).strip():
+                insert_at -= 1
+            section.insert(insert_at, replacement)
+            flags = _fence_flags(section)
+    lines[start + 1:end] = section
+    return lines
+
+
 def sync_proposal_prose(
-    text: str, acceptance: list[dict[str, Any]], timestamp: str
+    text: str,
+    acceptance: list[dict[str, Any]],
+    timestamp: str,
+    documentation_disposition: Any = None,
+    affected_docs: Sequence[str] = (),
 ) -> str:
     statuses = {
         item.get("id"): item.get("status")
@@ -657,9 +792,31 @@ def sync_proposal_prose(
             + ", ".join(sorted(missing))
         )
 
+    if documentation_disposition is not None:
+        if (
+            not isinstance(documentation_disposition, str)
+            or documentation_disposition not in {"updated", "no_change_required"}
+        ):
+            raise FlowError(
+                "Close requires documentation_disposition to be updated or no_change_required"
+            )
+        docs = ", ".join(f"`{path}`" for path in affected_docs) or "not applicable"
+        lines = result.splitlines(keepends=True)
+        newline = "\r\n" if "\r\n" in result else "\n"
+        lines = _upsert_lifecycle_section(
+            lines,
+            "Documentation Disposition",
+            [("Result", documentation_disposition.replace("_", " ")), ("Affected docs", docs)],
+            newline,
+            legacy_rules=((re.compile(r"^- Pending impact analysis\.[ \t]*$"), ()),),
+            before_heading="History",
+        )
+        result = "".join(lines).rstrip("\r\n") + newline
+
     history = re.search(r"^## History\s*$", result, re.MULTILINE)
     if history is None:
         raise FlowError("proposal prose is missing a History section")
+    newline = "\r\n" if "\r\n" in result else "\n"
     next_section = re.search(r"^## \S.*$", result[history.end() :], re.MULTILINE)
     section_end = (
         history.end() + next_section.start() if next_section is not None else len(result)
@@ -667,8 +824,95 @@ def sync_proposal_prose(
     entry = f"- {timestamp} - Close completed; requirement archived."
     section = result[history.end() : section_end].rstrip()
     if entry not in section:
-        section = f"{section}\n\n{entry}" if section else f"\n\n{entry}"
-    return result[: history.end()] + section + "\n" + result[section_end:].lstrip("\n")
+        section = f"{section}{newline}{newline}{entry}" if section else f"{newline}{newline}{entry}"
+    suffix = result[section_end:]
+    while suffix.startswith("\r\n") or suffix.startswith("\n"):
+        suffix = suffix[2:] if suffix.startswith("\r\n") else suffix[1:]
+    return result[: history.end()] + section + newline + suffix
+
+
+def sync_verification_prose(
+    text: str,
+    timestamp: str,
+    verified_at: Any,
+    verified_against: Any,
+    current_spec_paths: Sequence[str],
+    archive_path: str,
+    documentation_disposition: Any,
+    affected_docs: Sequence[str] = (),
+    docs_architect_enabled: bool = False,
+) -> str:
+    """Keep human-readable completion fields aligned with close metadata.
+
+    The metadata comment remains authoritative, but these bullets are useful to
+    people reading an archived change.  Update only the known lifecycle fields;
+    acceptance, review, and evidence prose remains human-owned.
+    """
+    if (
+        not isinstance(documentation_disposition, str)
+        or documentation_disposition not in {"updated", "no_change_required"}
+    ):
+        raise FlowError(
+            "Close requires documentation_disposition to be updated or no_change_required"
+        )
+    newline = "\r\n" if "\r\n" in text else "\n"
+    specs = ", ".join(f"`{path}`" for path in current_spec_paths) or "not applicable"
+    disposition = documentation_disposition.replace("_", " ")
+    docs = ", ".join(f"`{path}`" for path in affected_docs) or "not applicable"
+    reviewed_docs = docs if documentation_disposition == "updated" else (
+        "not applicable (docs-architect not configured)"
+        if not docs_architect_enabled
+        else "reviewed; no durable documentation change required"
+    )
+    docs_checks = (
+        "captured in verification metadata"
+        if docs_architect_enabled
+        else "not applicable (docs-architect not configured)"
+    )
+    verified_revision = str(verified_against) if verified_against else "not recorded"
+    verification_time = str(verified_at) if verified_at else "not recorded"
+    fields = {
+        "Documentation Disposition": [
+            ("Result", disposition),
+            ("Current specs merged", specs),
+            ("Current system or product docs reviewed", reviewed_docs),
+            ("docs-architect checks, when integrated", docs_checks),
+        ],
+        "Completion Record": [
+            ("Verified revision", f"`{verified_revision}`"),
+            ("Verification completed at", f"`{verification_time}`"),
+            ("Close planning", "passed"),
+            ("Close result", "completed"),
+            ("Close completed at", f"`{timestamp}`"),
+            ("Archive location", f"`{archive_path}`"),
+            ("Post-close archive validation", "passed"),
+        ],
+    }
+
+    lines = text.splitlines(keepends=True)
+    lines = _upsert_lifecycle_section(
+        lines,
+        "Documentation Disposition",
+        fields["Documentation Disposition"],
+        newline,
+        aliases={"Current system or product docs reviewed": ["Current system docs reviewed"]},
+        before_heading="Completion Record",
+    )
+    lines = _upsert_lifecycle_section(
+        lines,
+        "Completion Record",
+        fields["Completion Record"],
+        newline,
+        legacy_rules=(
+            (
+                re.compile(r"^- Close result and archive location:[ \t]*.*$"),
+                (("Close result", "completed"), ("Close completed at", f"`{timestamp}`"), ("Archive location", f"`{archive_path}`")),
+            ),
+            (re.compile(r"^- Close dry-run:[ \t]*.*$"), (("Close planning", "passed"),)),
+            (re.compile(r"^- Idempotent Close re-check:[ \t]*.*$"), (("Post-close archive validation", "passed"),)),
+        ),
+    )
+    return "".join(lines).rstrip("\r\n") + newline
 
 
 def atomic_write(path: Path, content: bytes) -> None:
@@ -914,7 +1158,8 @@ def proposal_text(metadata: dict[str, Any]) -> str:
 
 ## Documentation Disposition
 
-- Pending impact analysis.
+- Result: pending
+- Affected docs: not recorded
 
 ## History
 
@@ -1033,6 +1278,23 @@ Mirror every proposal acceptance ID in metadata. Use `passed`, `failed`, `waived
 ## Review Summary
 
 - Unresolved findings: none recorded.
+
+## Documentation Disposition
+
+- Result: pending
+- Current specs merged: no
+- Current system or product docs reviewed: not recorded
+- docs-architect checks, when integrated: not recorded
+
+## Completion Record
+
+- Verified revision: not recorded
+- Verification completed at: not recorded
+- Close planning: not run
+- Close result: pending
+- Close completed at: not recorded
+- Archive location: pending
+- Post-close archive validation: not run
 """
 
 
@@ -1215,6 +1477,11 @@ def validate_proposal(change: Change) -> list[str]:
         errors.append("risk must contain an allowed level and drivers array")
     if metadata.get("retention") not in RETENTIONS:
         errors.append("retention must be minimal, summary, or compliance")
+    disposition = metadata.get("documentation_disposition")
+    if not isinstance(disposition, str) or disposition not in DOCUMENTATION_DISPOSITIONS:
+        errors.append(
+            "documentation_disposition must be pending, updated, or no_change_required"
+        )
     if metadata.get("status") in APPROVED_REQUIREMENT_STATES:
         root = repository_root_for_change(change)
         if not authority_resolves(metadata.get("approval"), root):
@@ -1506,15 +1773,15 @@ def patterns_overlap(left: str, right: str) -> bool:
 def validate_documentation_readiness(
     root: Path, change: Change, verification: dict[str, Any]
 ) -> list[str]:
-    if not (root / ".docs-architect.json").is_file():
-        return []
     errors: list[str] = []
+    docs_architect_enabled = (root / ".docs-architect.json").is_file()
     checks = verification.get("documentation_checks", [])
     if not isinstance(checks, list):
         checks = []
-    for operation in sorted(DOCS_OPERATIONS):
-        if not any(docs_architect_capture(item, root, change, operation) for item in checks):
-            errors.append(f"docs-architect integration needs a successful captured {operation} result")
+    if docs_architect_enabled:
+        for operation in sorted(DOCS_OPERATIONS):
+            if not any(docs_architect_capture(item, root, change, operation) for item in checks):
+                errors.append(f"docs-architect integration needs a successful captured {operation} result")
     disposition = change.metadata.get("documentation_disposition")
     affected_docs = change.metadata.get("affected_docs", [])
     if disposition == "updated":
@@ -1562,7 +1829,7 @@ def validate_documentation_readiness(
                 )
             )
             qualifying = qualifying or documents_requirement or source_overlap
-        if not qualifying:
+        if docs_architect_enabled and not qualifying:
             errors.append(
                 "updated documentation disposition needs an active governed system-doc "
                 "that documents the requirement or overlaps affected code"
@@ -1591,7 +1858,9 @@ def validate_documentation_readiness(
         ):
             errors.append("no_change_required needs captured review evidence")
     else:
-        errors.append("docs-architect is enabled but documentation disposition is pending")
+        errors.append(
+            "documentation disposition must be updated or no_change_required before close"
+        )
     return errors
 
 
@@ -2321,6 +2590,9 @@ def close_plan(root: Path, change: Change, timestamp: str) -> tuple[dict[Path, b
     verification_text_value, verification = read_metadata(verification_path)
     tasks_path = change.path / "tasks.md"
     tasks_text_value, tasks_metadata = read_metadata(tasks_path)
+    proposal_affected_docs = proposal.get("affected_docs", [])
+    if not isinstance(proposal_affected_docs, list):
+        proposal_affected_docs = []
     evidence_by_id = {
         item["id"]: item for item in verification.get("acceptance", []) if isinstance(item, dict) and "id" in item
     }
@@ -2347,8 +2619,29 @@ def close_plan(root: Path, change: Change, timestamp: str) -> tuple[dict[Path, b
     tasks_metadata["verified_at"] = verification.get("verified_at")
     tasks_metadata["verified_against"] = verification.get("verified_against")
     tasks_metadata = rewrite_archived_references(tasks_metadata, active_prefix, archive_prefix)
+    current_spec_paths = [
+        current_spec_path(root, path.relative_to(change.path / "specs").parent.as_posix())
+        .relative_to(root)
+        .as_posix()
+        for path in delta_files(change)
+    ]
+    verification_text_value = sync_verification_prose(
+        verification_text_value,
+        timestamp,
+        verification.get("verified_at"),
+        verification.get("verified_against"),
+        current_spec_paths,
+        archive.relative_to(root).as_posix(),
+        proposal.get("documentation_disposition"),
+        proposal_affected_docs,
+        (root / ".docs-architect.json").is_file(),
+    )
     proposal_text_value = sync_proposal_prose(
-        proposal_text_value, proposal.get("acceptance", []), timestamp
+        proposal_text_value,
+        proposal.get("acceptance", []),
+        timestamp,
+        proposal.get("documentation_disposition"),
+        proposal_affected_docs,
     )
     writes[change.proposal] = replace_metadata(proposal_text_value, proposal).encode()
     writes[verification_path] = replace_metadata(verification_text_value, verification).encode()

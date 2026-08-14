@@ -69,6 +69,9 @@ class FlowTestCase(unittest.TestCase):
             encoding="utf-8",
         )
         proposal_text, proposal = flow.read_metadata(change.proposal)
+        proposal["documentation_disposition"] = "no_change_required"
+        proposal["no_doc_change_scope"] = ["src/**"]
+        proposal["no_doc_change_reason"] = "This CLI-only lifecycle repair changes no separate system documentation."
         proposal["status"] = "in_progress"
         implementation_path = self.write("src/export.py", "implemented export\n")
         proposal["affected_code"] = [implementation_path.relative_to(self.root).as_posix()]
@@ -292,6 +295,78 @@ The system SHALL add.
 
 
 class VerifyAndCloseTests(FlowTestCase):
+    def test_sync_verification_prose_upserts_legacy_fields_and_preserves_newlines(self) -> None:
+        source = (
+            "# Evidence\r\n\r\n"
+            "## Documentation Disposition\r\n\r\n"
+            "- Result: pending\r\n"
+            "\r\n"
+            "## Completion Record\r\n\r\n"
+            "- Close result and archive location: pending\r\n"
+        )
+
+        result = flow.sync_verification_prose(
+            source,
+            "2026-08-14T01:00:00+08:00",
+            "2026-08-14T00:25:00+08:00",
+            "2ad28f81781d949517bb275f753dcad6d4e80aac",
+            ["openspec/specs/export/spec.md"],
+            "openspec/changes/archive/2026-08-14-REQ-2026-001-export",
+            "updated",
+        )
+
+        self.assertIn("- Result: updated\r\n", result)
+        self.assertIn("- Current specs merged: `openspec/specs/export/spec.md`\r\n", result)
+        self.assertIn("- Close planning: passed\r\n", result)
+        self.assertIn("- Close result: completed\r\n", result)
+        self.assertIn("- Post-close archive validation: passed\r\n", result)
+        self.assertNotIn("pending", result)
+        self.assertNotIn("not run", result)
+        self.assertEqual(result.count("- Result:"), 1)
+        self.assertNotIn("\n", result.replace("\r\n", ""))
+
+    def test_sync_verification_prose_rejects_duplicate_or_nested_lifecycle_content(self) -> None:
+        duplicate = (
+            "# Evidence\n\n## Documentation Disposition\n\n"
+            "- Result: pending\n- Result: stale\n\n## Completion Record\n"
+        )
+        with self.assertRaises(flow.FlowError):
+            flow.sync_verification_prose(
+                duplicate, "2026-08-14T01:00:00+08:00", "2026-08-14T00:25:00+08:00",
+                "a" * 40, ["openspec/specs/export/spec.md"], "archive/path", "updated",
+            )
+
+        fenced = (
+            "# Evidence\n\n## Documentation Disposition\n\n"
+            "```md\n- Result: pending\n```\n- Result: pending\n\n"
+            "## Completion Record\n\n- Close result: pending\n"
+        )
+        result = flow.sync_verification_prose(
+            fenced, "2026-08-14T01:00:00+08:00", "2026-08-14T00:25:00+08:00",
+            "a" * 40, ["openspec/specs/export/spec.md"], "archive/path", "updated",
+        )
+        self.assertIn("```md\n- Result: pending\n```", result)
+        self.assertIn("- Result: updated\n", result)
+
+    def test_close_requires_explicit_standalone_documentation_disposition(self) -> None:
+        change = self.create_change("pending-doc-disposition")
+        result = flow.validate_change(change, readiness=True)
+        self.assertFalse(result["ok"])
+        self.assertTrue(any("documentation disposition" in item for item in result["errors"]))
+
+    def test_proposal_close_sync_removes_pending_documentation_placeholder(self) -> None:
+        source = (
+            "# REQ-2026-001: Example\n\n## Acceptance Criteria\n\n"
+            "- [ ] `AC-1` - Works\n\n## Documentation Disposition\n\n"
+            "- Pending impact analysis.\n\n## History\n\n- created\n"
+        )
+        result = flow.sync_proposal_prose(
+            source, [{"id": "AC-1", "status": "passed"}],
+            "2026-08-14T01:00:00+08:00", "no_change_required", [],
+        )
+        self.assertNotIn("Pending impact analysis", result)
+        self.assertIn("- Result: no change required", result)
+
     def test_readiness_rejects_test_source_as_observed_evidence(self) -> None:
         change = self.ready_change()
         source = self.write("tests/test_feature.py", "def test_feature(): pass\n")
@@ -565,6 +640,12 @@ class VerifyAndCloseTests(FlowTestCase):
         archived_proposal = (archive / "proposal.md").read_text(encoding="utf-8")
         self.assertIn("- [x] `AC-1`", archived_proposal)
         self.assertIn("Close completed; requirement archived.", archived_proposal)
+        archived_verification = (archive / "verification.md").read_text(encoding="utf-8")
+        self.assertNotIn("pending Close", archived_verification)
+        self.assertNotIn("Close result and archive location: pending", archived_verification)
+        self.assertIn("Current specs merged: `openspec/specs/export/spec.md`", archived_verification)
+        self.assertIn("Close result: completed", archived_verification)
+        self.assertIn(f"Archive location: `{payload['archive']}`", archived_verification)
         archived_prefix = archive.relative_to(self.root).as_posix()
         self.assertEqual(archived_meta["approval"]["ref"], f"{archived_prefix}/request.md")
         task_meta = flow.read_metadata(archive / "tasks.md")[1]

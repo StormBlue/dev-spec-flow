@@ -1,0 +1,3 @@
+Command: `python -m unittest discover -s tests -v`
+Observed: 64 tests passed; 1 Windows file-symlink test skipped because the process lacked symlink privilege.
+Scope: lifecycle Close, prose synchronization, documentation disposition, rollback, packaging, and existing regression coverage.

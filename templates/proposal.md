@@ -57,6 +57,9 @@ Keep `documentation_disposition` as `pending` until current product or system do
 synchronized. For `no_change_required`, leave `affected_docs` empty, record the reviewed scope
 in `no_doc_change_scope`, give a concrete reason, and link captured review evidence.
 
+- Result: pending
+- Affected docs: not recorded
+
 ## Open Questions
 
 - None recorded.
