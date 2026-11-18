@@ -27,6 +27,19 @@
       "type": "evidence"
     },
     {
+      "id": "EVID-REQ-2026-003",
+      "path": "openspec/changes/archive/2026-11-18-REQ-2026-003-scoped-governance/verification.md",
+      "relations": [
+        {
+          "target": "REQ-2026-003",
+          "type": "validates"
+        }
+      ],
+      "status": "completed",
+      "title": "Verification for Keep historical documentation debt off the implementation path",
+      "type": "evidence"
+    },
+    {
       "id": "PLAN-REQ-2026-001",
       "path": "openspec/changes/archive/2026-08-14-REQ-2026-001-upgrade-risk-driven-workflow/tasks.md",
       "relations": [
@@ -53,6 +66,19 @@
       "type": "exec-plan"
     },
     {
+      "id": "PLAN-REQ-2026-003",
+      "path": "openspec/changes/archive/2026-11-18-REQ-2026-003-scoped-governance/tasks.md",
+      "relations": [
+        {
+          "target": "REQ-2026-003",
+          "type": "implements"
+        }
+      ],
+      "status": "completed",
+      "title": "Implement Keep historical documentation debt off the implementation path",
+      "type": "exec-plan"
+    },
+    {
       "id": "REQ-2026-001",
       "path": "openspec/changes/archive/2026-08-14-REQ-2026-001-upgrade-risk-driven-workflow/proposal.md",
       "relations": [],
@@ -71,6 +97,14 @@
       ],
       "status": "done",
       "title": "Synchronize Close completion prose",
+      "type": "requirement"
+    },
+    {
+      "id": "REQ-2026-003",
+      "path": "openspec/changes/archive/2026-11-18-REQ-2026-003-scoped-governance/proposal.md",
+      "relations": [],
+      "status": "done",
+      "title": "Keep historical documentation debt off the implementation path",
       "type": "requirement"
     },
     {

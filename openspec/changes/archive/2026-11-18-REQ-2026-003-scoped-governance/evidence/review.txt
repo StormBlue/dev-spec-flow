@@ -1,0 +1,5 @@
+Integrated implementation review (not an independent reviewer)
+- Reviewed active-only discovery and full-catalog identity checks before mutation. Strict status reports incomplete historical identity.
+- Compared scoped assessment validation against the strict handshake: actual Git ancestor, file coverage and digests; behavior and high-risk reviews remain separate.
+- Checked that shared-checkout recognition is read-only and restricted to the canonical local checkout; inspection does not authorize installer writes.
+- Observations: see tests.txt for exercised paths. No outstanding findings from this review.

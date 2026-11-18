@@ -1,0 +1,11 @@
+docs-architect @ dc05bb0e8914f2dd568dced80f02a3157171f290: python -B -m unittest discover -s tests -q
+Ran 97 tests in 6.262s
+
+OK
+dev-spec-flow @ 823b8f53345c54a3e75c83bbb2f03730ad3a95e2: python -B -m unittest discover -s tests -q
+Ran 69 tests in 3.921s
+
+OK
+Clean Windows clone, core.autocrlf=true: 28 package files; ok=True.
+Clean Windows clone, core.autocrlf=false: 28 package files; ok=True.
+Real scoped producer/consumer fixture: unrelated old system-doc lacks a title; assess=continue_with_debt, audit_ok=false; record-docs, readiness, dry-run, close and repeated close passed. Full check and index --write still returned 1.
