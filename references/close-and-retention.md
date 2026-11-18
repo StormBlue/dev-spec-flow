@@ -27,7 +27,7 @@
 6. **预校验**：运行项目必要门禁、链接/metadata 检查和 index preview。不要用结构检查代替行为证据。
 7. **完成生命周期**：写 `completed_at`，追加 status history 并将 requirement/plan/evidence 置为相应完成状态。
 8. **移动归档**：移到 `changes/archive/<YYYY-MM-DD>-<REQ-ID>-<slug>/`，写真实 `archived_at`，更新所有受影响引用。
-9. **最终校验**：若 docs-architect 可用，运行 `check -> index --write -> check`；检查 Git diff 只包含预期 close 变化。
+9. **最终校验**：若项目配置 strict 或需高保障，运行 `check -> index --write -> check`；显式 scoped 的普通受管变更可使用一次 assess 捕获。检查 Git diff 只包含预期 close 变化。
 10. **Git 边界（按授权）**：若已授权 commit，将 spec merge、文档同步、压缩、时间、移动和索引一起提交；成功后才按授权 push。若 commit 未获授权，保留已校验的 worktree Close，明确报告 `closed in working tree; uncommitted`，不得伪造 commit 或 push。若仓库政策把 commit 规定为 requirement 的完成 gate，则保持 requirement 未完成并报告所缺 authority。
 
 CLI 的 journal、预计算、atomic replace、move 与 rollback 是文件系统完整性边界；**Git commit 是获授权时的 durable/reviewable 边界**。最终检查失败时既不 commit，也不报告成功。没有 commit 时可以准确报告 worktree 已 Close，但不能声称已经形成 repository-level atomic revision。

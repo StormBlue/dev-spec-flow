@@ -4,11 +4,11 @@ dev-spec-flow 管理一次 change 的澄清、实现、证据、review 和 close
 
 ## 检测与兼容
 
-若仓库存在 `.docs-architect.json`、docs-architect metadata、其 Skill/CLI 或明确项目约定，则启用集成；先读取实际 schema 和工具能力，不假定版本。
+以目标项目的 `.docs-architect.json` 为唯一配置入口：未配置为 standalone；已有配置默认 strict；显式 `"change_policy":"scoped"` 才切换。仅仅安装 Skill、发现旧 metadata 或目录联接不会改变项目策略。不要自行生成配置来“修复”缺失的集成。`dev-spec-flow` 编排交付，`docs-architect` 仅回答长期文档影响，不重复 intake/close。
 
-- 能完整集成：复用 metadata、ID、relations、status 与 `check/impact/index`。
-- 只能部分集成：保持本映射和稳定 ID，运行可用检查，记录缺少的能力。
-- 未安装：dev-spec-flow 可独立运行；不要擅自初始化 docs-architect 或创建 `docs/requirements`。
+- strict（及 scoped 高风险/critical 的受管变更）：保持已有 impact/check/index 证据与全部行为验收。
+- scoped 的低/中风险受管变更：在最终代码及长期文档就绪后运行 `docs_guard.py --root <repo> assess --base <ref> --json`，把输出保存在本变更 `evidence/`，运行 `dev_spec_flow.py --root <repo> record-docs --change <slug> --operation assess --ref openspec/changes/<slug>/evidence/assess.json` 自动验证并登记，不必手填 metadata。重复登记幂等，失败不会更新清单。严格流程也可用相同命令分别登记 impact、check、index。非 Git/基线不明不可据此认证。`can_implement`、`can_close_docs`、`audit_ok` 是不同的判断。也可提交完整严格证据。外层交付不得把 scoped 结果当全库健康。
+- scoped 的 `updated` 可引用相关、已纳管、active 的 product-spec 或 system-doc；不允许无关文档充数。旧 archive、普通 Markdown 无须批量补 metadata。
 
 ## Artifact 映射
 
@@ -66,7 +66,7 @@ readiness
  -> update active system/product docs OR evidenced no_change_required
  -> close requirement/plan/evidence lifecycle
  -> compress registered temporary artifacts and archive
- -> check -> index --write -> check
+ -> strict: check -> index --write -> check; scoped: assess or strict receipts
 ```
 
 `documentation_disposition: updated` 应由实际受影响且当前有效的 product/system doc 支持；若当前 docs-architect 版本只接受 system-doc，则按其真实 gate 执行并明确记录兼容限制，不用虚假文档改动绕过。`no_change_required` 必须有 reviewed scope、具体理由和捕获证据。
@@ -75,7 +75,7 @@ readiness
 `no_change_required`；CLI 不会把 `pending` 或未知值推断为完成。standalone 的
 `no_change_required` 仍需记录审阅范围、具体理由和 change-local 证据。
 
-执行 change 的 agent 负责解析当前 docs-architect Skill 路径，运行 impact/check/index，并把捕获结果登记到 verification metadata 的 `documentation_checks`。dev-spec-flow CLI 只校验这些结果及 disposition 的结构门槛，不猜测另一个 Skill 的安装路径，也不擅自初始化 docs-architect。
+执行 change 的 agent 负责解析当前 docs-architect Skill 路径，按前述策略运行 assess 或 impact/check/index，并把捕获结果登记到 verification metadata 的 `documentation_checks`。dev-spec-flow CLI 只校验这些结果及 disposition 的结构门槛，不猜测另一个 Skill 的安装路径，也不擅自初始化 docs-architect。
 
 ## 责任边界
 

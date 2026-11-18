@@ -1,0 +1,8 @@
+# Pin canonical package text, not arbitrary evidence or future binary assets.
+/SKILL.md text eol=lf
+/manifest.json text eol=lf
+/agents/*.yaml text eol=lf
+/adapters/*.md text eol=lf
+/references/*.md text eol=lf
+/templates/*.md text eol=lf
+/scripts/*.py text eol=lf

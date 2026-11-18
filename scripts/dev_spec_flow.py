@@ -21,6 +21,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import uuid
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any, Iterable, Sequence
@@ -41,7 +42,7 @@ DELTA_SECTION_RE = re.compile(
     r"^## (ADDED|MODIFIED|REMOVED|RENAMED) Requirements\s*$", re.MULTILINE
 )
 TASK_ID_RE = re.compile(r"^T-\d{3,}$")
-REQ_ID_RE = re.compile(r"^REQ-(\d{4})-(\d{3,})$")
+REQ_ID_RE = re.compile(r"^REQ-(\d{4})-(\d{3,}|u[0-9a-f]{32})$")
 SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 WINDOWS_RESERVED = {
@@ -152,13 +153,7 @@ def within(root: Path, relative: str) -> Path:
     current = root
     for part in PurePosixPath(normalize_relative(relative)).parts:
         current = current / part
-        try:
-            linklike = current.is_symlink() or (
-                hasattr(current, "is_junction") and current.is_junction()
-            )
-        except OSError:
-            linklike = True
-        if linklike:
+        if path_is_linklike(current):
             raise FlowError(f"Path traverses a symlink or junction: {relative!r}")
         if not current.exists():
             break
@@ -999,10 +994,14 @@ def validated_archive_root(root: Path) -> Path:
     return archive
 
 
-def scan_changes(root: Path, include_archive: bool = True) -> list[Change]:
+def scan_changes(root: Path, include_archive: bool = True, *,
+                 debt: list[dict[str, str]] | None = None) -> list[Change]:
     base = changes_root(root)
+    if path_is_linklike(base.parent) or path_is_linklike(base):
+        raise FlowError("Changes root cannot traverse a symlink or junction")
     if not base.is_dir():
         return []
+    require_real_directory(base.parent, "OpenSpec root")
     require_real_directory(base, "Changes root")
     validated_archive_root(root)
     proposals: list[Path] = []
@@ -1011,6 +1010,8 @@ def scan_changes(root: Path, include_archive: bool = True) -> list[Change]:
             continue
         require_real_directory(path, "Change directory")
         if path.name == "archive":
+            if not include_archive:
+                continue
             for archived in sorted(path.iterdir()):
                 if archived.name.startswith(".") or not archived.is_dir():
                     continue
@@ -1018,13 +1019,27 @@ def scan_changes(root: Path, include_archive: bool = True) -> list[Change]:
                 proposal = archived / "proposal.md"
                 if proposal.is_file():
                     proposals.append(proposal)
+                elif debt is not None:
+                    debt.append({"path": proposal.relative_to(root).as_posix(), "message": f"Historical proposal missing: {archived.name}"})
+                else:
+                    raise FlowError(f"Historical proposal missing: {archived.name}")
             continue
         proposal = path / "proposal.md"
         if proposal.is_file():
             proposals.append(proposal)
     catalog: list[Change] = []
     for proposal in proposals:
-        _, metadata = read_metadata(proposal)
+        if path_is_linklike(proposal):
+            raise FlowError(f"Refusing redirected proposal: {proposal}")
+        try:
+            _, metadata = read_metadata(proposal)
+            if not isinstance(metadata.get("id"), str) or not REQ_ID_RE.fullmatch(metadata["id"]):
+                raise FlowError(f"Missing or invalid requirement identity: {proposal}")
+        except FlowError as exc:
+            if debt is None or proposal.parent.parent.name != "archive":
+                raise
+            debt.append({"path": proposal.relative_to(root).as_posix(), "message": str(exc)})
+            continue
         catalog.append(Change(proposal.parent, proposal, metadata))
     by_id: dict[str, list[Change]] = {}
     for change in catalog:
@@ -1047,15 +1062,22 @@ def scan_changes(root: Path, include_archive: bool = True) -> list[Change]:
     return [item for item in catalog if item.path.parent.name != "archive"]
 
 
+def _archive_name_matches(name: str, identifier: str) -> bool:
+    return name == identifier or name.endswith("-" + identifier) or f"-{identifier}-" in name
+
+
 def find_change(root: Path, identifier: str, active_only: bool = False) -> Change | None:
     matches = []
-    for change in scan_changes(root, include_archive=not active_only):
+    debt: list[dict[str, str]] = []
+    for change in scan_changes(root, include_archive=not active_only, debt=debt):
         if identifier in {
             change.path.name,
             str(change.metadata.get("slug", "")),
             str(change.metadata.get("id", "")),
         }:
             matches.append(change)
+    if any(_archive_name_matches(Path(row["path"]).parent.name, identifier) for row in debt):
+        raise FlowError(f"Cannot resolve identity of the relevant legacy archive for {identifier}")
     if len(matches) > 1:
         raise FlowError(f"Change identifier is ambiguous: {identifier}")
     return matches[0] if matches else None
@@ -1065,7 +1087,8 @@ def allocate_requirement_id(root: Path, timestamp: str) -> str:
     year = dt.datetime.fromisoformat(timestamp).year
     maximum = 0
     seen: set[str] = set()
-    for change in scan_changes(root):
+    debt: list[dict[str, str]] = []
+    for change in scan_changes(root, debt=debt):
         identifier = change.metadata.get("id")
         if not isinstance(identifier, str):
             continue
@@ -1073,8 +1096,11 @@ def allocate_requirement_id(root: Path, timestamp: str) -> str:
             raise FlowError(f"Duplicate requirement ID already exists: {identifier}")
         seen.add(identifier)
         match = REQ_ID_RE.fullmatch(identifier)
-        if match and int(match.group(1)) == year:
+        if match and match.group(2).isdigit() and int(match.group(1)) == year:
             maximum = max(maximum, int(match.group(2)))
+    if debt:
+        # Never guess the next sequential ID from an incomplete historical catalog.
+        return f"REQ-{year}-u{uuid.uuid4().hex}"
     return f"REQ-{year}-{maximum + 1:03d}"
 
 
@@ -1315,7 +1341,7 @@ The system SHALL describe an observable behavior.
 
 def run_new(root: Path, args: argparse.Namespace) -> tuple[dict[str, Any], int]:
     slug = args.slug
-    if not SLUG_RE.fullmatch(slug):
+    if not SLUG_RE.fullmatch(slug) or slug == "archive" or not safe_relative(slug):
         raise FlowError("slug must be lower-case kebab-case")
     if find_change(root, slug) is not None:
         raise FlowError(f"Change already exists: {slug}")
@@ -1467,7 +1493,7 @@ def validate_proposal(change: Change) -> list[str]:
     if metadata.get("status") not in REQUIREMENT_STATES:
         errors.append("proposal has an unsupported requirement status")
     if not isinstance(metadata.get("id"), str) or not REQ_ID_RE.fullmatch(metadata.get("id", "")):
-        errors.append("proposal id must match REQ-YYYY-NNN")
+        errors.append("proposal id must use a sequential or UUID-backed REQ identity")
     if metadata.get("slug") != change.path.name and change.path.parent.name != "archive":
         errors.append("proposal slug must match its active directory")
     if metadata.get("complexity") not in COMPLEXITIES:
@@ -1770,15 +1796,106 @@ def patterns_overlap(left: str, right: str) -> bool:
     )
 
 
+def documentation_policy(root: Path) -> str:
+    config = root / ".docs-architect.json"
+    if not config.exists():
+        return "standalone"
+    try:
+        data = json.loads(config.read_text(encoding="utf-8"))
+        policy = data.get("change_policy", "strict") if isinstance(data, dict) else None
+    except (OSError, ValueError) as exc:
+        raise FlowError(f"Cannot read documentation policy: {exc}") from exc
+    if policy not in ("strict", "scoped"):
+        raise FlowError("Unknown docs-architect change_policy; expected strict or scoped")
+    return policy
+
+
+def scoped_docs_capture(item: Any, root: Path, change: Change) -> bool:
+    if not isinstance(item, dict) or item.get("operation") != "assess" or item.get("kind") not in {"command", "log"}:
+        return False
+    data = _read_local_json_capture(item, root, change)
+    if not data or data.get("kind") != "docs-architect.assessment.v1" or data.get("can_close_docs") is not True:
+        return False
+    if data.get("decision") not in ("continue", "continue_with_debt") or data.get("unknown") != [] or data.get("blocking") != []:
+        return False
+    paths = data.get("changed_files")
+    base = data.get("base_revision")
+    if not isinstance(paths, list) or not all(isinstance(p, str) and safe_relative(p) for p in paths):
+        return False
+    if not immutable_git_commit_resolves(root, base):
+        return False
+    # Use the same (merge-)base as assess, including committed changes on a feature branch.
+    digests = data.get("file_digests")
+    if not isinstance(digests, dict) or set(digests) != set(paths) or not all(
+        v is None or (isinstance(v, str) and SHA256_RE.fullmatch(v)) for v in digests.values()
+    ):
+        return False
+    # An archived receipt is a historical observation, not a claim about today's tree.
+    if change.path.parent.name == "archive":
+        return True
+    head = git_head_oid(root)
+    working = git_changed_paths(root, head) if head else None
+    if working is None or subprocess.run(["git", "merge-base", "--is-ancestor", base, head], cwd=root,
+                                         capture_output=True).returncode:
+        return False
+    delta = subprocess.run(["git", "diff", "--name-only", "--no-renames", "-z", base, head, "--"], cwd=root, capture_output=True)
+    if delta.returncode:
+        return False
+    observed = set(working) | set(filter(None, delta.stdout.decode("utf-8").split("\0")))
+    prefix = change.path.relative_to(root).as_posix()
+    recording = {item["ref"], prefix + "/verification.md"}
+    if not (observed - recording) <= set(paths):
+        return False
+    for name in set(paths) - recording:
+        try:
+            path = within(root, name)
+            if (sha256_file(path) if path.is_file() else None) != digests[name]:
+                return False
+        except (FlowError, OSError):
+            return False
+    return True
+
+
+def run_route(root: Path, args: argparse.Namespace) -> tuple[dict[str, Any], int]:
+    """Select an evidence path without creating governance files or granting approval."""
+    policy = documentation_policy(root)
+    if args.intent == "research":
+        route = "research"
+    elif (policy != "strict" and args.intent in {"repair", "internal", "copy"}
+          and args.risk_level == "low" and not args.risk_driver and args.complexity != "large"):
+        route = "direct" if args.complexity == "small" else "handoff"
+    else:
+        route = "managed"
+    steps = {"research": ["Investigate and report; do not start implementation."],
+             "direct": ["Resume any existing change for this intent; otherwise implement the scoped fix.",
+                        "Run targeted behavioral verification and report the observed result."],
+             "handoff": ["Use one existing issue, PR, or note for intent, acceptance, next step and evidence.",
+                         "Implement, verify and update the same record."],
+             "managed": ["Resume or create a managed change; verify behavior and risk-specific boundaries before close."]}
+    return {"ok": True, "route": route, "policy": policy, "steps": steps[route], "writes": []}, 0
+
+
 def validate_documentation_readiness(
     root: Path, change: Change, verification: dict[str, Any]
 ) -> list[str]:
     errors: list[str] = []
-    docs_architect_enabled = (root / ".docs-architect.json").is_file()
+    # Rechecking an archive describes what was certified then, not today's policy.
+    policy = (change.metadata.get("docs_policy_at_close") if change.path.parent.name == "archive" else None)
+    if policy is None:
+        policy = documentation_policy(root)
+    elif policy not in ("standalone", "strict", "scoped"):
+        return ["Unknown documentation policy in archived change"]
+    docs_architect_enabled = policy != "standalone"
     checks = verification.get("documentation_checks", [])
     if not isinstance(checks, list):
         checks = []
-    if docs_architect_enabled:
+    risk = change.metadata.get("risk")
+    if (policy == "scoped" and isinstance(risk, dict) and risk.get("level") in ("low", "medium")
+            and not all(any(docs_architect_capture(item, root, change, op) for item in checks)
+                        for op in DOCS_OPERATIONS)):
+        if not any(scoped_docs_capture(item, root, change) for item in checks):
+            errors.append("scoped integration needs a successful assess capture covering the current change")
+    elif docs_architect_enabled:
         for operation in sorted(DOCS_OPERATIONS):
             if not any(docs_architect_capture(item, root, change, operation) for item in checks):
                 errors.append(f"docs-architect integration needs a successful captured {operation} result")
@@ -1805,7 +1922,9 @@ def validate_documentation_readiness(
                 _, metadata = read_metadata(path)
             except FlowError:
                 continue
-            if metadata.get("type") == "system-doc" and metadata.get("status") == "active":
+            if metadata.get("status") == "active" and (metadata.get("type") == "system-doc" or (
+                policy == "scoped" and metadata.get("type") == "product-spec"
+            )):
                 governed.append(metadata)
         requirement_id = change.metadata.get("id")
         affected_code = change.metadata.get("affected_code", [])
@@ -1832,7 +1951,7 @@ def validate_documentation_readiness(
         if docs_architect_enabled and not qualifying:
             errors.append(
                 "updated documentation disposition needs an active governed system-doc "
-                "that documents the requirement or overlaps affected code"
+                "(or scoped product-spec) that documents the requirement or overlaps affected code"
             )
     elif disposition == "no_change_required":
         if affected_docs:
@@ -2200,12 +2319,17 @@ def change_local_link_path(source: Path, target: str, root: Path, change_path: P
 def run_status(root: Path, args: argparse.Namespace) -> tuple[dict[str, Any], int]:
     rows = []
     errors = []
-    for change in scan_changes(root):
+    debt: list[dict[str, str]] = []
+    for change in scan_changes(root, debt=debt):
         metadata = change.metadata
         archived = change.path.parent.name == "archive"
         created = metadata.get("created_at")
         if not valid_iso(created):
-            errors.append(f"{change.proposal.relative_to(root).as_posix()}: invalid created_at")
+            relative = change.proposal.relative_to(root).as_posix()
+            if archived:
+                debt.append({"path": relative, "message": f"{relative}: invalid created_at"})
+            else:
+                errors.append(f"{relative}: invalid created_at")
         rows.append({
             "id": metadata.get("id"), "slug": metadata.get("slug", change.path.name),
             "status": metadata.get("status"), "created_at": created,
@@ -2221,7 +2345,39 @@ def run_status(root: Path, args: argparse.Namespace) -> tuple[dict[str, Any], in
         )
         return parsed, item.get("id") or "", item["path"]
     rows.sort(key=chronology)
-    return {"ok": not errors, "changes": rows, "errors": errors}, 1 if errors else 0
+    if getattr(args, "strict", False):
+        errors.extend(row["message"] for row in debt)
+    return {"ok": not errors, "changes": rows, "errors": errors, "archive_debt": debt,
+            "catalog_complete": not debt and not errors}, int(bool(errors))
+
+
+def run_record_docs(root: Path, args: argparse.Namespace) -> tuple[dict[str, Any], int]:
+    """Register one observed docs receipt; do not mark behavior or readiness as passed."""
+    change = find_change(root, args.change, active_only=True)
+    if change is None:
+        raise FlowError(f"Active change not found: {args.change}")
+    operation = args.operation
+    item = {"operation": operation, "kind": "command", "ref": args.ref,
+            "description": f"Captured docs-architect {operation} result"}
+    if operation == "assess":
+        ok = (documentation_policy(root) == "scoped" and
+              change.metadata.get("risk", {}).get("level") in ("low", "medium") and
+              scoped_docs_capture(item, root, change))
+    else:
+        ok = docs_architect_capture(item, root, change, operation)
+    if not ok:
+        raise FlowError(f"Receipt not applicable, stale or unsuccessful for {operation}: {args.ref}")
+    relative = (change.path / "verification.md").relative_to(root).as_posix()
+    path = within(root, relative)
+    text, metadata = read_metadata(path)
+    checks = metadata.get("documentation_checks", [])
+    if metadata.get("type") != "evidence" or not isinstance(checks, list):
+        raise FlowError("Expected an evidence manifest with a documentation_checks list")
+    recorded = not any(isinstance(c, dict) and all(c.get(k) == item[k] for k in ("ref", "operation", "kind")) for c in checks)
+    if recorded:
+        metadata["documentation_checks"] = [*checks, item]
+        atomic_write(path, replace_metadata(text, metadata).encode("utf-8"))
+    return {"ok": True, "path": relative, "operation": operation, "recorded": recorded}, 0
 
 
 def run_verify(root: Path, args: argparse.Namespace) -> tuple[dict[str, Any], int]:
@@ -2301,14 +2457,11 @@ def merge_delta(current_text: str | None, delta: Delta, domain: str) -> str:
 
 
 def archived_match(root: Path, identifier: str) -> Change | None:
-    archive = validated_archive_root(root)
-    if not archive.is_dir():
-        return None
-    matches = []
-    for proposal in archive.glob("*/proposal.md"):
-        _, metadata = read_metadata(proposal)
-        if identifier in {metadata.get("id"), metadata.get("slug"), proposal.parent.name}:
-            matches.append(Change(proposal.parent, proposal, metadata))
+    debt: list[dict[str, str]] = []
+    matches = [c for c in scan_changes(root, debt=debt) if c.path.parent.name == "archive"
+               and identifier in {c.metadata.get("id"), c.metadata.get("slug"), c.path.name}]
+    if any(_archive_name_matches(Path(row["path"]).parent.name, identifier) for row in debt):
+        raise FlowError(f"Cannot certify legacy archive matching {identifier}")
     if len(matches) > 1:
         raise FlowError(f"Archived identifier is ambiguous: {identifier}")
     return matches[0] if matches else None
@@ -2332,7 +2485,12 @@ def archived_lineage_events(
     """Return later archived operations touching one stable BR, chronologically."""
     target_time = parse_iso(target.metadata["archived_at"])
     events: list[tuple[dt.datetime, Change, str, Any]] = []
-    for candidate in scan_changes(root, include_archive=True):
+    debt: list[dict[str, str]] = []
+    catalog = scan_changes(root, debt=debt)
+    for row in debt:
+        if (root / row["path"]).parent.joinpath("specs", domain, "spec.md").exists():
+            raise FlowError(f"Unverified archived lineage for {domain}: {row['path']}")
+    for candidate in catalog:
         if candidate.path == target.path or candidate.path.parent.name != "archive":
             continue
         for path in delta_files(candidate):
@@ -2601,6 +2759,7 @@ def close_plan(root: Path, change: Change, timestamp: str) -> tuple[dict[Path, b
         evidence_result = evidence.get("status", evidence.get("result"))
         item["status"] = "passed" if evidence_result == "passed" else "not_applicable"
         item["evidence"] = evidence.get("evidence", [])
+    proposal["docs_policy_at_close"] = documentation_policy(root)
     proposal["status"] = "done"
     proposal["updated_at"] = timestamp
     proposal["status_changed_at"] = timestamp
@@ -2665,6 +2824,9 @@ def run_close(root: Path, args: argparse.Namespace) -> tuple[dict[str, Any], int
                 raise FlowError("Archived change is incomplete: " + "; ".join(archived_errors))
             return {"ok": True, "idempotent": True, "archive": archived.path.relative_to(root).as_posix()}, 0
         raise FlowError(f"Active change not found: {args.identifier}")
+    # A write must also reject a known active/archive identity collision. Read-only
+    # active verification intentionally need not parse unrelated historical proposals.
+    archived_match(root, change.metadata["id"])
     if (change.path / JOURNAL).is_file():
         if args.dry_run:
             raise FlowError("Close recovery journal exists; dry-run will not mutate it. Run close without --dry-run to recover")
@@ -3122,15 +3284,29 @@ def run_doctor(root: Path, args: argparse.Namespace) -> tuple[dict[str, Any], in
     skill_root = Path(__file__).resolve().parent.parent
     package_errors, package_warnings, manifest = package_validation(skill_root)
     change_results = []
+    project_errors: list[str] = []
     try:
         change_results = [validate_change(change, False) for change in scan_changes(root, include_archive=False)]
     except FlowError as exc:
-        package_errors.append(str(exc))
+        project_errors.append(str(exc))
     installation = None
     if args.target:
-        destination = installation_destination(root, args.target, args.scope, args.dest)
-        installation = installation_health(destination, args.target, args.scope)
-    errors = [*package_errors]
+        shared_default = (args.target == "grok" and args.scope == "user" and not args.dest)
+        destination = ((Path.home() / ".agents" / "skills" / "dev-spec-flow") if shared_default else
+                       installation_destination(root, args.target, args.scope, args.dest))
+        # Diagnose this checkout's *own* shared entry, not an arbitrary symlink.
+        shared = Path.home() / ".agents" / "skills" / "dev-spec-flow"
+        allowed = {shared, Path.home() / ".claude" / "skills" / "dev-spec-flow"}
+        if (args.scope == "user" and not args.dest and not destination.exists()
+                and args.target in {"codex", "cursor"} and shared.exists()):
+            destination = shared
+        if (args.scope == "user" and destination in allowed and path_is_linklike(destination)
+                and destination.resolve() == skill_root == Path.home() / ".agents" / "repos" / "dev-spec-flow"):
+            installation = {"ok": not package_errors, "mode": "shared-checkout", "read_only": True,
+                            "destination": str(destination), "source": str(skill_root)}
+        else:
+            installation = installation_health(destination, args.target, args.scope)
+    errors = [*package_errors, *project_errors]
     if any(not item["ok"] for item in change_results):
         errors.append("One or more active changes failed structural validation")
     if installation is not None and not installation["ok"]:
@@ -3139,7 +3315,7 @@ def run_doctor(root: Path, args: argparse.Namespace) -> tuple[dict[str, Any], in
         "ok": not errors, "python": sys.version.split()[0],
         "python_supported": sys.version_info >= (3, 10),
         "package": {"version": manifest.get("version") if manifest else None, "errors": package_errors, "warnings": package_warnings},
-        "changes": change_results, "installation": installation, "errors": errors,
+        "project_errors": project_errors, "changes": change_results, "installation": installation, "errors": errors,
     }
     if not payload["python_supported"]:
         payload["ok"] = False
@@ -3161,6 +3337,13 @@ def build_parser() -> argparse.ArgumentParser:
     add_json_argument(parser)
     subparsers = parser.add_subparsers(dest="command", required=True)
 
+    route = subparsers.add_parser("route", help="Read-only workflow selection; no artifacts written")
+    add_root_argument(route); add_json_argument(route)
+    route.add_argument("--intent", choices=("repair", "internal", "copy", "feature", "contract", "research", "permissions", "migration", "money"), required=True)
+    route.add_argument("--complexity", choices=sorted(COMPLEXITIES), required=True)
+    route.add_argument("--risk-level", choices=sorted(RISK_LEVELS), required=True)
+    route.add_argument("--risk-driver", action="append", default=[])
+
     new = subparsers.add_parser("new", help="Create a timestamped change skeleton")
     add_root_argument(new); add_json_argument(new)
     new.add_argument("slug"); new.add_argument("--title", required=True)
@@ -3174,10 +3357,17 @@ def build_parser() -> argparse.ArgumentParser:
 
     status = subparsers.add_parser("status", help="List changes in lifecycle order")
     add_root_argument(status); add_json_argument(status)
+    status.add_argument("--strict", action="store_true", help="Fail if historical proposals cannot be indexed")
 
     verify = subparsers.add_parser("verify", help="Validate change structure or close readiness")
     add_root_argument(verify); add_json_argument(verify)
     verify.add_argument("--change"); verify.add_argument("--readiness", action="store_true")
+
+    record = subparsers.add_parser("record-docs", help="Register one observed change-local docs receipt")
+    add_root_argument(record); add_json_argument(record)
+    record.add_argument("--change", required=True)
+    record.add_argument("--operation", choices=sorted(DOCS_OPERATIONS | {"assess"}), required=True)
+    record.add_argument("--ref", required=True, help="Repository-relative path to captured JSON in this change's evidence/")
 
     close = subparsers.add_parser("close", help="Merge, retain, and archive a ready change")
     add_root_argument(close); add_json_argument(close)
@@ -3203,10 +3393,19 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def print_text(command: str, payload: dict[str, Any]) -> None:
-    if command == "status":
+    if command == "route" and "route" in payload:
+        print(payload["route"] + ": " + " ".join(payload["steps"]))
+    elif command == "status":
+        for row in payload.get("archive_debt", []):
+            print(f"Archive debt: {row['message']}")
+        for error in payload.get("errors", []): print(f"ERROR: {error}")
         for item in payload.get("changes", []):
             marker = "archive" if item["archived"] else item.get("status")
             print(f"{item.get('created_at') or 'unknown'}  {item.get('id') or '?'}  {marker}  {item.get('slug')}")
+    elif command == "route" and "route" in payload:
+        print(f"{payload['route']} ({payload['policy']})")
+        for step in payload["steps"]:
+            print(f"- {step}")
     elif command == "verify":
         targets = payload.get("changes", [payload])
         for item in targets:
@@ -3227,8 +3426,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     root = Path(getattr(args, "root", Path.cwd())).resolve()
     json_output = bool(getattr(args, "json", False))
     handlers = {
-        "new": run_new, "status": run_status, "verify": run_verify,
-        "close": run_close, "validate": run_validate, "install": run_install,
+        "route": run_route, "new": run_new, "status": run_status, "verify": run_verify,
+        "record-docs": run_record_docs, "close": run_close, "validate": run_validate, "install": run_install,
         "update": run_update, "doctor": run_doctor,
     }
     try:

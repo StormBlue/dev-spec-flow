@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -132,6 +133,80 @@ class FlowTestCase(unittest.TestCase):
         )
         return flow.find_change(self.root, slug, active_only=True)  # type: ignore[return-value]
 
+
+class ScopedWorkflowTests(FlowTestCase):
+    def test_documented_new_quickstart_runs(self) -> None:
+        skill = Path(flow.__file__).resolve().parents[1] / "SKILL.md"
+        line = next(s for s in skill.read_text(encoding="utf-8").splitlines()
+                    if s.startswith("python <skill-root>") and " new " in s)
+        parts = line.split()[2:]
+        values = {"<project>": str(self.root), "<slug>": "smoke", "<title>": "Smoke check", "<domain>": "workflow"}
+        code = subprocess.run([flow.sys.executable, flow.__file__, *(values.get(p, p) for p in parts)],
+                              capture_output=True)
+        self.assertEqual(code.returncode, 0, code.stderr + code.stdout)
+        self.assertTrue((self.root / "openspec/changes/smoke/proposal.md").is_file())
+
+    def test_legacy_proposal_does_not_block_target_or_recycle_identity(self) -> None:
+        target = self.create_change()
+        self.write("openspec/changes/archive/old/proposal.md", "# A normal legacy proposal")
+        self.assertEqual(flow.run_verify(self.root, namespace(change=target.path.name, readiness=False))[1], 0)
+        next_change = self.create_change("another-fix")
+        self.assertRegex(next_change.metadata["id"], r"^REQ-\d{4}-u[0-9a-f]{32}$")
+        result, code = flow.run_status(self.root, namespace())
+        self.assertEqual(code, 0)
+        self.assertEqual(len(result["changes"]), 2)
+        self.assertFalse(result["catalog_complete"])
+        self.assertEqual(flow.run_status(self.root, namespace(strict=True))[1], 1)
+        with self.assertRaises(flow.FlowError):
+            flow.run_close(self.root, namespace(identifier="old", dry_run=True))
+
+    def test_known_duplicate_still_blocks_close_even_if_only_one_is_active(self) -> None:
+        change = self.ready_change()
+        self.write("openspec/changes/archive/other/proposal.md", change.proposal.read_bytes())
+        with self.assertRaisesRegex(flow.FlowError, "Duplicate requirement IDs"):
+            flow.run_close(self.root, namespace(identifier=change.path.name, dry_run=True))
+
+    def test_route_is_read_only_and_never_downshifts_declared_risk(self) -> None:
+        def route(intent="repair", complexity="small", risk="low", drivers=()):
+            return flow.run_route(self.root, namespace(intent=intent, complexity=complexity, risk_level=risk, risk_driver=drivers))[0]["route"]
+        self.assertEqual(route(), "direct")
+        self.assertEqual(route(complexity="medium"), "handoff")
+        self.assertEqual(route("research"), "research")
+        for kind in ("feature", "migration", "permissions", "money", "contract"):
+            self.assertEqual(route(kind), "managed")
+        self.assertEqual(route(risk="high"), "managed")
+        self.assertEqual(route(drivers=["security-privacy"]), "managed")
+        self.assertEqual(list(self.root.iterdir()), [])
+        self.write(".docs-architect.json", "{}")
+        self.assertEqual(route(), "managed")
+        self.write(".docs-architect.json", '{"change_policy":"scoped"}')
+        self.assertEqual(route(), "direct")
+
+    def test_scoped_assessment_receipt_binds_real_files_and_does_not_replace_high_risk_checks(self) -> None:
+        change = self.ready_change()
+        self.write(".docs-architect.json", '{"change_policy":"scoped"}')
+        for cmd in (["init", "-q"], ["add", "."], ["-c", "user.name=Fixture", "-c", "user.email=test@example.test", "commit", "-qm", "baseline"]):
+            subprocess.run(["git", *cmd], cwd=self.root, check=True, capture_output=True)
+        path = self.write("src/export.py", "verified version")
+        receipt_name = "openspec/changes/add-export/evidence/assess.json"
+        item = {"operation":"assess", "kind":"command", "ref":receipt_name, "description":"Observed scoped assessment"}
+        data = {"kind":"docs-architect.assessment.v1", "base_revision":flow.git_head_oid(self.root), "decision":"continue_with_debt", "can_close_docs":True, "unknown":[], "blocking":[], "changed_files":["src/export.py"], "file_digests":{"src/export.py":flow.sha256_file(path)}}
+        self.write(receipt_name, json.dumps(data))
+        verification = flow.read_metadata(change.path / "verification.md")[1]
+        args = namespace(change=change.path.name, operation="assess", ref=receipt_name)
+        self.assertTrue(flow.run_record_docs(self.root, args)[0]["recorded"])
+        self.assertFalse(flow.run_record_docs(self.root, args)[0]["recorded"])
+        verification = flow.read_metadata(change.path / "verification.md")[1]
+        self.assertEqual(len(verification["documentation_checks"]), 1)
+        self.assertEqual(flow.validate_documentation_readiness(self.root, change, verification), [])
+        self.write("src/export.py", "changed again")
+        self.assertFalse(flow.scoped_docs_capture(item, self.root, change))
+        self.write("src/export.py", "verified version")
+        change.metadata["risk"]["level"] = "high"
+        errors = flow.validate_documentation_readiness(self.root, change, verification)
+        self.assertTrue(any("captured check" in e for e in errors))
+        self.write(receipt_name, json.dumps(dict(data, unknown=[{"code":"uncertain"}])))
+        self.assertFalse(flow.scoped_docs_capture(item, self.root, change))
 
 class NewAndStatusTests(FlowTestCase):
     def test_new_creates_single_manifest_stable_ids_and_iso_times(self) -> None:

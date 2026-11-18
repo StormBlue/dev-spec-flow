@@ -98,7 +98,7 @@ Close 只改变生命周期字段、引用路径、压缩内容或 archive 位�
 应重写受影响的 repository-relative refs。若 Close 同时修改实现、当前行为条款或被验证的 durable
 文档内容，则必须重新运行受影响检查并更新 `verified_at`/`verified_against`。
 
-当目标仓库启用 docs-architect 时，`documentation_checks` 必须分别记录成功的
+当目标仓库采用严格集成（默认）或执行高风险受管变更时，`documentation_checks` 必须分别记录成功的
 `operation: impact`、`operation: check` 和 `operation: index` 捕获。三者都应引用 change
 下的 JSON 结果；`impact` 至少含 changed/affected/findings 数组，`check` 的 summary.errors
 必须为 0，`index` 必须证明 `write: true`。一条普通 command 描述不能复用为三种握手。

@@ -1,6 +1,6 @@
 ---
 name: dev-spec-flow
-description: Risk-driven, spec-driven full-stack development workflow for building or changing non-trivial features, systems, apps, pages, APIs, refactors, migrations, and bug fixes. Use when a request needs durable requirements, coordinated implementation, acceptance evidence, review, or lifecycle closure. Turns fuzzy intent into an OpenSpec-style change, selects research, design, tests, and specialist review by uncertainty and failure risk, keeps work moving through implementation, then synchronizes durable documentation and archives the change. Skip trivial one-line edits that do not change durable behavior or decisions.
+description: Risk-driven, spec-driven full-stack development workflow for building or changing non-trivial features, systems, apps, pages, APIs, refactors, migrations, and bug fixes. Use when a request needs durable requirements, coordinated implementation, acceptance evidence, review, or lifecycle closure. Turns fuzzy intent into an OpenSpec-style change, selects research, design, tests, and specialist review by uncertainty and failure risk, keeps work moving through implementation, then synchronizes durable documentation and archives the change. Use a direct repair or one handoff note for reversible low-risk work where project policy allows; do not infer low risk from line count.
 ---
 
 <!-- docs-architect-meta {"schema_version":1,"id":"SYS-dev-spec-flow","type":"system-doc","title":"Dev Spec Flow canonical workflow","status":"active","owners":[],"sources":["SKILL.md","references/**","templates/**","scripts/**"],"update_when":["The workflow, artifact contract, verification policy, close behavior, or runtime tooling changes"],"relations":[{"type":"documents","target":"REQ-2026-001"}],"evidence":[],"affected_docs":[],"verified_at":null,"verified_against":null} -->
@@ -8,6 +8,12 @@ description: Risk-driven, spec-driven full-stack development workflow for buildi
 # Dev Spec Flow
 
 Turn a development request into a traceable change without forcing every task through the same ceremony. Use composable actions, choose assurance from failure risk, and finish with one close operation that updates durable truth and archives temporary context.
+
+## Choose the smallest sufficient workflow
+
+If the intent already has an active change, resume it; never downgrade it to evade a gate. Research ends with an answer, not a change. For an internal refactor, copy edit, or fix restoring an existing contract that is low-risk, reversible, and needs no handoff: implement, run the relevant behavioral check, and report the actual result. **Zero new governance files is valid.** For a low-risk handoff, keep intent, acceptance, next step and evidence in one existing issue/PR/note. No archive is needed on these paths. Do not turn a bug fix into a fictional product delta. A public contract change, explicit project requirement, risk driver, permissions, money or migration requires the managed path even for one line. Reassess if risk or scope changes.
+
+If uncertain, `route --intent repair --complexity small --risk-level low --json` explains the choice without writing files. In a configured strict project preserve the managed gates by default; scoped integration is project opt-in, not implied by installing a Skill. The remaining lifecycle steps apply to **managed changes**, not routine direct repairs.
 
 ## Start With Context
 
@@ -21,7 +27,7 @@ Before writing:
 Use the bundled CLI when available:
 
 ```text
-python <skill-root>/scripts/dev_spec_flow.py --root <project> new <slug> --title <title>
+python <skill-root>/scripts/dev_spec_flow.py --root <project> new <slug> --title <title> --domain <domain>
 python <skill-root>/scripts/dev_spec_flow.py --root <project> status
 python <skill-root>/scripts/dev_spec_flow.py --root <project> verify --change <slug>
 python <skill-root>/scripts/dev_spec_flow.py --root <project> close <slug> --dry-run
@@ -125,7 +131,7 @@ Close must be dry-runnable, idempotent, and recoverable. Never claim success aft
 
 ## Cooperate With Docs Architect
 
-When `docs-architect` and `.docs-architect.json` are present, use it for impact analysis, durable documentation synchronization, relationship checks, indexes, and gardening. Do not create a second documentation tree.
+Only `.docs-architect.json` opts the project into integrated validation. When configured, use it for impact analysis, durable documentation synchronization, relationship checks, indexes, and gardening. Do not create a second documentation tree.
 
 Map artifacts as follows:
 
@@ -156,7 +162,7 @@ Before reporting completion:
 - run the project checks proportionate to the change;
 - run `verify --readiness` and a `close --dry-run` when the CLI is available;
 - execute close and confirm the active change is gone, the archive entry exists, and current specs contain the merged clauses;
-- run docs-architect `check -> index --write -> check` when integrated;
+- use strict documentation receipts for default/full assurance and high risk; with explicit scoped policy a low/medium change can use one scoped assessment (see integration reference);
 - inspect Git status/diff and perform only the commit or push operations the user authorized.
 
 Report the changed behavior, durable documents updated, evidence actually observed, retained risks or waivers, archive location, and Git result.

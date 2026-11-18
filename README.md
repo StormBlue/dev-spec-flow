@@ -12,6 +12,17 @@ intake -> explore? -> propose/update -> apply -> verify? -> close
 
 `?` 表示由未知程度或失败风险触发。清晰的小改动不会被强制要求完整设计、逐 Scenario 新增测试或多轮审核；安全、迁移、外部契约等高风险改动仍会获得相应强度的证据和专项审查。
 
+## 日常修复和旧项目
+
+先做只读路由，不必为每次修复执行 `new`：
+
+```sh
+python scripts/dev_spec_flow.py route --intent repair --complexity small --risk-level low
+python scripts/dev_spec_flow.py status --strict
+```
+
+`direct` 表示实施并做定向验证，无需新建治理文件；`handoff` 用一张已有的 issue/PR/笔记交接；`managed` 保留完整验收和归档。默认 status 会列出可用变更和归档债务，`--strict` 用于全库目录审计。旧档案身份不全时，新受管变更用 UUID 命名空间，不猜测可能重用的顺序号。`.docs-architect.json` 的 `change_policy` 可显式设为 `scoped`；现有项目默认仍是 `strict`。统一安装下 `doctor` 可以只读识别已知个人目录联接；`install/update` 仍禁止对联接写入。
+
 ## 主要变化
 
 - **双轴策略**：协作复杂度决定文档详细程度，失败风险决定验证和 Review 强度。
